@@ -1,4 +1,5 @@
 # Pipeline dumps, data directory
+logs*
 results
 data
 !notebooks/data
