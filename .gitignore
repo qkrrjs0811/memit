@@ -1,6 +1,6 @@
 # Pipeline dumps, data directory
 logs*
-results
+results*
 data
 !notebooks/data
 *_tmp_*_.json
