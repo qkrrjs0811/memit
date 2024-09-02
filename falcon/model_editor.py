@@ -242,6 +242,7 @@ class ModelEditor:
             - eval_utils_counterfact.compute_rewrite_quality_counterfact() 참고
     '''
     def _predict(self, model, tok, record, top_k=1, max_out_len=100, do_print=False, prefix='', gen_len=1):
+        case_id = record['case_id']
         subject, target_new, target_true = (
             record['requested_rewrite'][x] for x in ['subject', 'target_new', 'target_true']
         )
@@ -266,14 +267,17 @@ class ModelEditor:
         gen_texts_g_prompt = self._generate(generation_prompts, top_k, max_out_len)
 
         if do_print:
-            print(f'# {prefix} [ _predict() ] probs : {probs}')
-            print(f'# {prefix} [ _predict() ] targets_correct : {targets_correct}\n')
+            print(f'# ModelEditor._predict() [ {prefix} ] case_id : {case_id}')
+            print(f'# ModelEditor._predict() [ {prefix} ] subject : {subject}\n')
+
+            print(f'# ModelEditor._predict() [ {prefix} ] probs : {probs}')
+            print(f'# ModelEditor._predict() [ {prefix} ] targets_correct : {targets_correct}\n')
                 
-            print(f'# {prefix} [ _predict() ] rewrite_prompts : {rewrite_prompts}')
-            print(f'# {prefix} [ _predict() ] gen_texts_r_prompt : {gen_texts_r_prompt}\n')
+            print(f'# ModelEditor._predict() [ {prefix} ] rewrite_prompts : {rewrite_prompts}')
+            print(f'# ModelEditor._predict() [ {prefix} ] gen_texts_r_prompt : {gen_texts_r_prompt}\n')
                 
-            print(f'# {prefix} [ _predict() ] generation_prompts : {generation_prompts}')
-            print(f'# {prefix} [ _predict() ] gen_texts_g_prompt : {gen_texts_g_prompt}\n\n')
+            print(f'# ModelEditor._predict() [ {prefix} ] generation_prompts : {generation_prompts}')
+            print(f'# ModelEditor._predict() [ {prefix} ] gen_texts_g_prompt : {gen_texts_g_prompt}\n\n')
         
         return {'subject': subject, 'probs': probs, 'targets_correct': targets_correct,
                 'gen_texts_r_prompt': gen_texts_r_prompt, 'gen_texts_g_prompt': gen_texts_g_prompt,
@@ -326,8 +330,8 @@ class ModelEditor:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
         record_chunks_ext, case_ids_ext = [], []
-        do_print, do_test, do_restore, do_restore_test = True, True, False, False
-        print(f'\n# ModelEditor.edit() do_print:{do_print}, do_test:{do_test}, do_restore:{do_restore}\n')
+        do_print, do_extend, do_restore, do_restore_test = True, False, False, False
+        print(f'\n# ModelEditor.edit() do_print:{do_print}, do_extend:{do_extend}, do_restore:{do_restore}, do_restore_test:{do_restore_test}\n')
 
         for record_chunks in chunks(self._ds, self._num_edits):
             case_result_template = str(self._run_dir / '{}_edits-case_{}.json') # output file
@@ -363,7 +367,7 @@ class ModelEditor:
 
 
             # (4) 현재까지의 전체 데이터 테스트
-            if do_test:
+            if do_extend:
                 record_chunks_ext.extend(record_chunks)
                 case_ids_ext.extend(case_ids)
 
@@ -383,17 +387,21 @@ class ModelEditor:
                     for k, v in weights_copy.items():
                         nethook.get_parameter(self._model, k)[...] = v.to('cuda')
                 
-                # if not do_restore_test:
-                #     self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='restored')
-                # else:
-                #     if do_restore_test:
-                #         print('\n\n######################################## extend_restored ########################################\n')
-                #         self._predict_all(self._model, self._tok, record_chunks_ext, do_print=do_print, prefix='extend_restored', out_dir=out_dir)
-            
+                if do_restore_test:
+                    if not do_extend:
+                        print('\n\n######################################## restored ########################################\n')
+                        self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='restored')
+                    # else:
+                    #     print('\n\n######################################## restored_extend ########################################\n')
+                    #     self._predict_all(self._model, self._tok, record_chunks_ext, do_print=do_print, prefix='restored_extend', out_dir=out_dir)
+
             self._cnt += len(record_chunks)
             print(f'[{self._cnt}] edit finish\n\n')
 
             self._print_performance()
+
+            # if self._cnt >= 100:
+            #     break
 
 
     def _print_performance(self):

@@ -49,6 +49,26 @@ def compute_rewrite_quality_counterfact(
     neighborhood_prompts = record["neighborhood_prompts"]
     generation_prompts = record["generation_prompts"]
 
+    '''
+        subject : Danielle Darrieux
+        target_new : {'str': 'English', 'id': 'Q1860'}
+        target_true : {'str': 'French', 'id': 'Q150'}
+        rewrite_prompts : ['The mother tongue of Danielle Darrieux is']
+        ...
+        generation_prompts : ["Danielle Darrieux's mother tongue is"]
+    '''
+
+    def _print():
+        print('\n### compute_rewrite_quality_counterfact()._print() ###\n')
+        print(f'subject : {subject}')
+        print(f'target_new : {target_new}')
+        print(f'target_true : {target_true}')
+        print(f'rewrite_prompts : {rewrite_prompts}')
+        print(f'paraphrase_prompts : {paraphrase_prompts}')
+        print(f'neighborhood_prompts : {neighborhood_prompts}')
+        print(f'generation_prompts : {generation_prompts}\n\n')
+    _print()
+
     # Form a list of lists of prefixes to test.
     prob_prompts = [
         rewrite_prompts,
@@ -128,6 +148,7 @@ def test_batch_prediction(
     which_correct: str,
     target_new: str,
     target_true: str,
+    prefix=''
 ):
     """
     which_correct: Which target to consider correct. Either 0 for "new" or 1 for "true".
@@ -153,34 +174,70 @@ def test_batch_prediction(
     probs = np.zeros((logits.size(0),), dtype=np.float32)
     targets_correct = []
 
+    
+    def _print():
+        print(f'\n#################### {prefix} test_batch_prediction()._print() ####################\n')
+        print(f'prefix_lens : {prefix_lens}')
+        print(f'prefixes : {prefixes}')
+        print(f'target_new : {target_new}')
+        print(f'target_true : {target_true}\n')
+        print(f'prompt_tok : {prompt_tok}')
+        print(f'a_tok(n) : {tok.decode(a_tok)}({a_tok})')
+        print(f'b_tok(t) : {tok.decode(b_tok)}({b_tok})\n')
+        print(f'logits size : {logits.size()}, type : {type(logits)}\n')
+    _print()
+
+
     for i in range(logits.size(0)):
         cur_len = choice_a_len if i % 2 == 0 else choice_b_len
 
         # Compute suffix probabilities
         for j in range(cur_len):
             cur_tok = (a_tok if i % 2 == 0 else b_tok)[j]
-            probs[i] += -torch.nn.functional.log_softmax(
-                logits[i, prefix_lens[i // 2] + j - 1, :], dim=0
-            )[cur_tok].item()
+
+            '''
+                - [i]는 [target_new(english), target_true(french)] 2번 돌고
+                    - [j]는 target의 토큰 단위로 돔 (단일 토큰이면 1번만 돔)
+
+                    - logits size : torch.Size([2, 10, 50257])
+                        - logits[i, prefix_lens[i // 2] + j - 1, :] -> shape = (1, 1, 50257)
+                            - if i==0 : index = (0, 8, :)
+                            - if i==1 : index = (1, 8, :)
+            '''
+            prob_temp = -torch.nn.functional.log_softmax(logits[i, prefix_lens[i // 2] + j - 1, :], dim=0)
+            prob = prob_temp[cur_tok].item()
+            print(f'i=[{i}], j=[{j}] tok : {tok.decode(cur_tok)}({cur_tok}), prob : {prob}')
+
+            # _cur_tok = (a_tok if i % 2 != 0 else b_tok)[j]
+            # _prob = prob_temp[_cur_tok].item()
+            # print(f'i=[{i}], j=[{j}] _tok : {tok.decode(_cur_tok)}({_cur_tok}), _prob : {_prob}\n')
+
+            probs[i] += prob
         probs[i] /= cur_len
+        print(f'i=[{i}] prob_avg : {probs[i]}\n')
 
         # Compute accuracy on new targets
         if (which_correct[i // 2] == 0 and i % 2 == 0) or (
             which_correct[i // 2] == 1 and i % 2 == 1
         ):
             correct = True
+            
             for j in range(cur_len):
                 cur_tok = (a_tok if i % 2 == 0 else b_tok)[j]
+                _tok = logits[i, prefix_lens[i // 2] + j - 1, :].argmax().item()
+                print(f'[{j}] predict : {tok.decode(_tok)}, target : {tok.decode(cur_tok)}')
 
-                if logits[i, prefix_lens[i // 2] + j - 1, :].argmax().item() != cur_tok:
+                if cur_tok != _tok:
                     correct = False
                     break
+            print()
+
             targets_correct.append(correct)
 
     return [
         {"target_new": probs[i].item(), "target_true": probs[i + 1].item()}
         for i in range(0, len(probs), 2)
-    ], targets_correct
+    ], targets_correct, logits
 
 
 def test_generation(
