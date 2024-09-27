@@ -329,9 +329,13 @@ class ModelEditor:
         if self._num_edits > 1:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
-        record_chunks_ext, case_ids_ext = [], []
-        do_print, do_extend, do_restore, do_restore_test = True, False, False, False
+        
+        ##### flag 설정 #####
+        do_print, do_extend, do_restore, do_restore_test = True, True, False, False
         print(f'\n# ModelEditor.edit() do_print:{do_print}, do_extend:{do_extend}, do_restore:{do_restore}, do_restore_test:{do_restore_test}\n')
+
+        # 누적 실험을 위한 리스트
+        record_chunks_ext, case_ids_ext = [], []
 
         for record_chunks in chunks(self._ds, self._num_edits):
             case_result_template = str(self._run_dir / '{}_edits-case_{}.json') # output file

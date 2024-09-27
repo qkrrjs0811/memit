@@ -21,3 +21,10 @@ python -u -m falcon.model_edit_runner \
 # 	--hparams_fname=gpt2-xl.json \
 # 	--num_edits=1 \
 # 	--continue_from_run=run_002
+
+# python -u -m experiments.evaluate \
+# 	--alg_name=MEMIT \
+# 	--model_name=gpt2-xl \
+# 	--ds_name=mcf \
+# 	--hparams_fname=gpt2-xl.json \
+# 	--num_edits=100

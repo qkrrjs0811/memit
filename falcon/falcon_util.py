@@ -1,10 +1,12 @@
-import os, sys, json
+import os, sys, json, string, re
 from itertools import islice
 
 ENCODING = "UTF-8"
 DELIM_KEY = "\t"
 FILE_EXT = "."
 
+# 모든 일반적인 기호 포함
+PUNCTUATION = string.punctuation
 
 class TXT_OPTION:
     OFF = 0
@@ -70,6 +72,38 @@ def is_empty(text: str, trim_flag=True):
     return False
 
 
+def is_symbol(text: str, symbols=PUNCTUATION):
+    if is_empty(text):
+        return False
+
+    for c in text:
+        if c == ' ' or c == '\t' or c == '\n':
+            continue
+        if not c in symbols:
+            return False
+
+    return True
+
+
+def contains_symbol(text: str, symbols=PUNCTUATION):
+    if is_empty(text):
+        return False
+
+    for c in text:
+        if c in symbols:
+            return True
+
+    return False
+
+
+def remove_delim_multi(text: str):
+    return re.sub(r'[\t\n ]+', ' ', text).strip()
+
+
+def remove_symbol_edge(text: str, symbols=PUNCTUATION):
+    return text.strip(symbols)
+
+
 def exists(file_path: str):
     if file_path == None or len(file_path) == 0:
         return False
@@ -133,3 +167,49 @@ def is_true(in_list: list):
     
     return True
 
+
+'''
+    key를 기준으로 정렬
+        - is_reverse = False : 오름 차순
+        - is_reverse = True : 내림 차순
+'''
+def sorted_dict_key(in_dict: dict, is_reverse=False):
+    return dict(sorted(in_dict.items(), key=lambda item:item[0], reverse=is_reverse))
+
+'''
+    value를 기준으로 정렬
+        - is_reverse = False : 오름 차순
+        - is_reverse = True : 내림 차순
+'''
+def sorted_dict_value(in_dict: dict, is_reverse=False):
+    return dict(sorted(in_dict.items(), key=lambda item:item[1], reverse=is_reverse))
+
+'''
+    key를 기준으로 오름 차순 정렬, value를 기준으로 내림 차순 정렬
+'''
+def sorted_dict(in_dict: dict):
+    return sorted_dict_value(sorted_dict_key(in_dict, False), True)
+
+
+def add_dict_freq(in_dict: dict, key, value=1):
+    if key in in_dict.keys():
+        in_dict[key] += value
+    else:
+        in_dict[key] = value
+
+
+def trim(input_list: list, rm_empty_flag: bool):
+    if not rm_empty_flag:
+        for i in range(len(input_list)):
+            if input_list[i] is None:
+                input_list[i] = ""
+            else :
+                input_list[i] = str(input_list[i]).strip()
+    else:
+        result = []
+
+        for i in range(len(input_list)):
+            if not is_empty(input_list[i], True):
+                result.append(str(input_list[i]).strip())
+        
+        return result
