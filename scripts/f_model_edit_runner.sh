@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # rm -rf ./results
 
 python -u -m falcon.model_edit_runner \
@@ -5,7 +7,7 @@ python -u -m falcon.model_edit_runner \
 	--model_name=gpt2-xl \
 	--ds_name=mcf \
 	--hparams_fname=gpt2-xl.json \
-	--num_edits=200
+	--num_edits=2
 
 # python -u -m falcon.model_edit_runner \
 # 	--alg_name=ROME \
@@ -28,3 +30,11 @@ python -u -m falcon.model_edit_runner \
 # 	--ds_name=mcf \
 # 	--hparams_fname=gpt2-xl.json \
 # 	--num_edits=100
+
+# 근영이 ROME LLaMa3-8b
+# python -u -m falcon.model_edit_runner \
+# 	--alg_name=ROME \
+# 	--model_name=llama3-8B \
+# 	--ds_name=cf \
+# 	--hparams_fname=llama3-8B.json \
+# 	--num_edits=1
