@@ -1,18 +1,14 @@
 import os, sys, json, string, re
 from itertools import islice
 
+
 ENCODING = "UTF-8"
 DELIM_KEY = "\t"
 FILE_EXT = "."
 
+
 # 모든 일반적인 기호 포함
 PUNCTUATION = string.punctuation
-
-class TXT_OPTION:
-    OFF = 0
-    UPPER = 1
-    LOWER = 2
-    RM_SPACE = 4
 
 
 class LOG_OPTION:
@@ -143,6 +139,24 @@ def open_file(file_path: str, encoding=ENCODING, mode='r'):
         return open(file_path, mode)
     else:
         return open(file_path, mode, encoding=encoding)
+
+
+def file_to_freq_dict(in_file_path: str, encoding=ENCODING, delim_key=DELIM_KEY, in_dict=dict()):
+    in_file = open_file(in_file_path, encoding, mode='r')
+
+    while 1:
+        line = in_file.readline()
+        if not line:
+            break
+
+        temp = line.strip().split(delim_key)
+        key = temp[0].strip()
+        value = int(temp[1].strip())
+
+        add_dict_freq(in_dict, key, value)
+    in_file.close()
+
+    return in_dict
 
 
 def window(seq, n=2):
