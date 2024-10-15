@@ -34,7 +34,7 @@ python -u -m falcon.model_edit_runner \
 # 근영이 ROME LLaMa3-8b
 # python -u -m falcon.model_edit_runner \
 # 	--alg_name=ROME \
-# 	--model_name=llama3-8B \
+# 	--model_name=meta-llama/Meta-Llama-3-8B \
 # 	--ds_name=cf \
-# 	--hparams_fname=llama3-8B.json \
+# 	--hparams_fname=meta-llama/Meta-Llama-3-8B.json \
 # 	--num_edits=1

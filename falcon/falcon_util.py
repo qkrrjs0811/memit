@@ -55,6 +55,12 @@ def to_json_str(input, indent=4):
         return ""
 
 
+def write_json_to_file(json_dict, out_file_path, encoding=ENCODING):
+    out_file = open_file(out_file_path, encoding, 'w')
+    out_file.write(to_json_str(json_dict))
+    out_file.close()
+
+
 def is_empty(text: str, trim_flag=True):
     if text is None:
         return True

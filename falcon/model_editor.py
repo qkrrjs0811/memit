@@ -65,11 +65,12 @@ class ModelEditor:
                  conserve_memory: bool,
                  dir_name: str,
                  num_edits=1,
-                 use_cache=False
+                 use_cache=False,
+                 output_hidden_states=False
                 ):
         self._alg_name = alg_name
         self._model_name = model_name
-        self._hparams_fname = hparams_fname
+        self._hparams_fname = hparams_fname.replace('/', '_')
         self._ds_name = ds_name
         self._dataset_size_limit = dataset_size_limit
         self._continue_from_run = continue_from_run
@@ -79,6 +80,7 @@ class ModelEditor:
         self._dir_name = dir_name
         self._num_edits = num_edits
         self._use_cache = use_cache
+        self._output_hidden_states = output_hidden_states
 
         self._params_class, self._apply_algo = ALG_DICT[alg_name]
         self._print_init()
@@ -115,7 +117,8 @@ class ModelEditor:
         print(f'\tconserve_memory : {self._conserve_memory}')
         print(f'\tdir_name : {self._dir_name}')
         print(f'\tnum_edits : {self._num_edits}')
-        print(f'\tuse_cache : {self._use_cache}\n\n')
+        print(f'\tuse_cache : {self._use_cache}')
+        print(f'\toutput_hidden_states : {self._output_hidden_states}\n\n')
     
 
     def _check_continue_from_run(self):
@@ -157,7 +160,8 @@ class ModelEditor:
     def _init_model(self):
         if type(self._model_name) is str:
             print('# ModelEditor._init_model() Instantiating model')
-            self._model = AutoModelForCausalLM.from_pretrained(self._model_name).cuda()
+            self._model = AutoModelForCausalLM.from_pretrained(self._model_name,
+                                                               output_hidden_states=self._output_hidden_states).cuda()
             self._tok = AutoTokenizer.from_pretrained(self._model_name)
             self._tok.pad_token = self._tok.eos_token
         else:
@@ -212,12 +216,12 @@ class ModelEditor:
         return re.sub(r'[\t\n ]+', ' ', gen_texts).strip()
 
 
-    def _predict_all(self, model, tok, records, top_k=1, max_out_len=100, do_print=False, prefix='', gen_len=1, out_dir=''):
+    def _predict_all(self, model, tok, records, top_k=1, max_out_len=100, do_print=False, prefix='', gen_prompt_size=1, out_dir=''):
         performance = 0
 
         for idx, record in enumerate(records):
             cnt = idx + 1 if 'extend' in prefix else self._cnt + idx + 1
-            ret = self._predict(model, tok, record, top_k, max_out_len, do_print, f'[{cnt}] {prefix}', gen_len)
+            ret = self._predict(model, tok, record, top_k, max_out_len, do_print, f'[{cnt}] {prefix}', gen_prompt_size)
             
             if len(out_dir) > 0:
                 logits = ret['logits']
@@ -241,15 +245,15 @@ class ModelEditor:
         - 단일 데이터에 대해서 결과를 확인하기 위해 만든 임시 함수
             - eval_utils_counterfact.compute_rewrite_quality_counterfact() 참고
     '''
-    def _predict(self, model, tok, record, top_k=1, max_out_len=100, do_print=False, prefix='', gen_len=1):
+    def _predict(self, model, tok, record, top_k=1, max_out_len=100, do_print=False, prefix='', gen_prompt_size=1):
         case_id = record['case_id']
         subject, target_new, target_true = (
             record['requested_rewrite'][x] for x in ['subject', 'target_new', 'target_true']
         )
         rewrite_prompts = [record['requested_rewrite']['prompt'].format(subject)]
         generation_prompts = record['generation_prompts']
-        if len(generation_prompts) > gen_len:
-            generation_prompts = generation_prompts[:gen_len]
+        if len(generation_prompts) > gen_prompt_size:
+            generation_prompts = generation_prompts[:gen_prompt_size]
 
         prob_prompts = [rewrite_prompts]
         which_correct = [[0 for _ in range(len(rewrite_prompts))]]

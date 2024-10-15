@@ -164,6 +164,7 @@ def test_batch_prediction(
         padding=True,
         return_tensors="pt",
     ).to("cuda")
+    model.to("cuda")
 
     a_tok, b_tok = (tok(f" {n}")["input_ids"] for n in [target_new, target_true])
     choice_a_len, choice_b_len = (len(n) for n in [a_tok, b_tok])
