@@ -1,8 +1,7 @@
-import shutil, re
+import shutil, re, time
 import numpy as np
 from typing import Tuple, Union, List
 from itertools import chain
-from time import time
 
 from .falcon_util import *
 from util.globals import *
@@ -42,6 +41,10 @@ DS_DICT = {
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# from transformers import  AutoTokenizer
+# from .gpt2_model import GPT2LMHeadModel as AutoModelForCausalLM
+# from transformers.models.gpt2 import GPT2LMHeadModel as AutoModelForCausalLM
 
 seed = 7
 torch.manual_seed(seed)
@@ -360,14 +363,18 @@ class ModelEditor:
             self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='org')
 
             # (2) 모델 편집
-            start = time()
+            '''
+                - ROME : rome_main.apply_rome_to_model()
+                - MEMIT : memit_main.apply_memit_to_model()
+            '''
+            start = time.time()
             edited_model, weights_copy = self._apply_algo(
                 self._model, self._tok,
                 [{'case_id': record['case_id'], **record['requested_rewrite']} for record in record_chunks],
                 self._hparams, copy=False, return_orig_weights=True,
                 **args_conserve_memory, **etc_args
             )
-            exec_time = time() - start
+            exec_time = time.time() - start
             print(f'### Execution took : {exec_time}\n\n')
 
             # (3) 변경된 결과 확인
