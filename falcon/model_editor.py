@@ -96,6 +96,7 @@ class ModelEditor:
 
         self._model: AutoModelForCausalLM
         self._tok: AutoTokenizer
+        self._weights_copy = None
         self._init_model()
 
         self._cache_template = None
@@ -330,15 +331,28 @@ class ModelEditor:
         print(f'# ModelEditor.data_load() ds_class : {self._ds_class}')
         print(f'# ModelEditor.data_load() ds_eval_method : {self._ds_eval_method}\n')
         self._ds = self._ds_class(DATA_DIR, tok=self._tok, size=self._dataset_size_limit)
+    
+
+    def restore_weights(self):
+        with torch.no_grad():
+            for k, v in self._weights_copy.items():
+                nethook.get_parameter(self._model, k)[...] = v.to('cuda')
+            
+            self._weights_copy = None
+            print(f'# ModelEditor.restore_weights() weights restored\n')
 
 
-    def edit(self):
+    def edit_ext_datas(self, datas, do_print=False, do_extend=False, do_restore=False, do_restore_test=False):
+        self._ds = datas
+        self.edit(do_print, do_extend, do_restore, do_restore_test)
+
+
+    def edit(self, do_print=True, do_extend=True, do_restore=False, do_restore_test=False):
         if self._num_edits > 1:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
         
         ##### flag 설정 #####
-        do_print, do_extend, do_restore, do_restore_test = True, True, False, False
         print(f'\n# ModelEditor.edit() do_print:{do_print}, do_extend:{do_extend}, do_restore:{do_restore}, do_restore_test:{do_restore_test}\n')
 
         # 누적 실험을 위한 리스트
@@ -368,7 +382,7 @@ class ModelEditor:
                 - MEMIT : memit_main.apply_memit_to_model()
             '''
             start = time.time()
-            edited_model, weights_copy = self._apply_algo(
+            edited_model, self._weights_copy = self._apply_algo(
                 self._model, self._tok,
                 [{'case_id': record['case_id'], **record['requested_rewrite']} for record in record_chunks],
                 self._hparams, copy=False, return_orig_weights=True,
@@ -398,10 +412,8 @@ class ModelEditor:
             # (5) 편집 이전의 weight로 복원 및 테스트
             if do_restore:
                 # 편집된 weight를 다시 원래 weight로 복원
-                with torch.no_grad():
-                    for k, v in weights_copy.items():
-                        nethook.get_parameter(self._model, k)[...] = v.to('cuda')
-                
+                self.restore_weights()
+
                 if do_restore_test:
                     if not do_extend:
                         print('\n\n######################################## restored ########################################\n')
