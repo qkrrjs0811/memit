@@ -7,7 +7,7 @@ python -u -m falcon.model_edit_runner \
 	--model_name=gpt2-xl \
 	--ds_name=mcf \
 	--hparams_fname=gpt2-xl.json \
-	--num_edits=2
+	--num_edits=100
 
 # python -u -m falcon.model_edit_runner \
 # 	--alg_name=ROME \

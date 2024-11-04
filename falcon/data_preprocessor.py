@@ -93,7 +93,7 @@ def load_datas(in_file_path: str):
     return datas
 
 
-def write_datas(out_file_path: str, datas, ext_n=-1, ext_rn=-1, do_simple=True):
+def write_datas(out_file_path: str, datas, ext_n=-1, ext_rn=-1, do_simple=False):
     if do_simple:
         datas = replace_simple(datas)
 
