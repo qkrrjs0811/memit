@@ -144,8 +144,11 @@ def make_datas_sequential(datas_list, out_file_path: str):
         for i, datas_batch in enumerate(datas_batchs):
             merged_datas_batchs[i].extend(datas_batch)
     
+    merged_datas_all = []
     for i, merged_datas_batch in enumerate(merged_datas_batchs):
-        write_datas(out_file_path.format(f'merged', f'{i+1}'), merged_datas_batch)
+        merged_datas_all.extend(merged_datas_batch)
+        write_datas(out_file_path.format(f'merged', '', f'merged_batch{i+1}'), merged_datas_batch)
+    write_datas(out_file_path.format(f'merged', '', f'merged_all'), merged_datas_all)
 
 
 def make_datas_sequential_each(group_size: int, datas, out_file_path: str):
@@ -154,11 +157,36 @@ def make_datas_sequential_each(group_size: int, datas, out_file_path: str):
     for i, data in enumerate(datas):
         datas_batchs[i%group_size].append(data)
     
+    datas_all = []
     for i, datas_batch in enumerate(datas_batchs):
-        write_datas(out_file_path.format(f'each/identical{group_size}', f'{i+1}'), datas_batch)
+        datas_all.extend(datas_batch)
+        _out_file_path = out_file_path.format(f'each/identical{group_size}', group_size, f'batch{i+1}')
+
+        if check_identical(datas_batch):
+            write_datas(_out_file_path, datas_batch)
+        else:
+            print('### error : ' + _out_file_path + ' is not identical!')
+    
+    _out_file_path = out_file_path.format(f'each/identical{group_size}', group_size, 'all')
+    write_datas(_out_file_path, datas_all)
     
     return datas_batchs
 
+
+def check_identical(datas):
+    data_size = len(datas)
+
+    subject_set = set()
+    for data in datas:
+        subject = data['requested_rewrite']['subject']
+        subject_set.add(subject)
+    
+    subject_size = len(subject_set)
+
+    if data_size == subject_size:
+        return True
+
+    return False
 
 
 
@@ -229,7 +257,7 @@ def run(out_path, datas=None):
     in_file_path1 = out_path + f'/multi_counterfact_identical2_ext_n_{ext_n}.json'
     in_file_path2 = out_path + f'/multi_counterfact_identical3_all_105.json'
     in_file_path3 = out_path + f'/multi_counterfact_identical4_all_20.json'
-    out_file_path = out_path + '/sequential_identical_subjects/{}/mcf_sequential_identical_subjects_batch{}.json'
+    out_file_path = out_path + '/sequential_identical_subjects/{}/mcf_sequential_identical{}_subjects_{}.json'
     datas_list = [load_datas(in_file_path1), load_datas(in_file_path2), load_datas(in_file_path3)]
     make_datas_sequential(datas_list, out_file_path)
 
