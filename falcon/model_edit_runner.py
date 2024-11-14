@@ -1,5 +1,6 @@
 import argparse
 
+from .falcon_util import *
 from .model_editor import ModelEditor
 
 
@@ -79,6 +80,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Use cached k/v pairs",
     )
+    parser.add_argument(
+        "--in_file_path",
+        type=str,
+        default=None,
+        help="Load external data directly and run it",
+    )
     parser.set_defaults(skip_generation_tests=False, conserve_memory=False)
     args = parser.parse_args()
 
@@ -98,6 +105,13 @@ if __name__ == "__main__":
         use_cache=args.use_cache
     )
 
-    model_editor.load_data()
-    model_editor.edit()
+
+    do_print, do_extend, do_restore, do_restore_test = True, True, False, False
+
+    if args.in_file_path is None:
+        model_editor.load_data()
+        model_editor.edit(do_print, do_extend, do_restore, do_restore_test)
+    else:
+        datas = load_json_file(args.in_file_path, do_print=True)
+        model_editor.edit_ext_datas(datas, do_print, do_extend, do_restore, do_restore_test)
 

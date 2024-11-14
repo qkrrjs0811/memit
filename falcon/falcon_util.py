@@ -116,18 +116,21 @@ def exists(file_path: str):
     return False
 
 
-def json_file_to_dict(in_file_path: str, encoding=ENCODING):
+def load_json_file(in_file_path: str, encoding=ENCODING, do_print=False):
     try:
         if exists(in_file_path):
             file = open_file(in_file_path, encoding, 'r')
 
             # 파일을 읽을 때는, load() 호출
-            json_dict = json.load(file)
+            datas = json.load(file)
 
-            return json_dict
+            if do_print:
+                print(f'# falcon_util.load_json_file() datas size : {len(datas)}, in_file_path : {in_file_path}')
+
+            return datas
 
     except Exception as e:
-        logging_error("json_file_to_dict()", e)
+        logging_error("# falcon_util.load_json_file() error : ", e)
         return None
 
     return None

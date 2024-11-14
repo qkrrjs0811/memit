@@ -46,9 +46,12 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 # from .gpt2_model import GPT2LMHeadModel as AutoModelForCausalLM
 # from transformers.models.gpt2 import GPT2LMHeadModel as AutoModelForCausalLM
 
-seed = 7
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
+SEED = 7
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+
+# import random
+# random.seed(SEED)
 
 
 import warnings
@@ -407,7 +410,8 @@ class ModelEditor:
                     out_dir += f'/id_{case_ids_ext[:10]}...{case_ids_ext[-1]}'
 
                 print('\n\n######################################## extend ########################################\n')
-                self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, prefix='extend', out_dir=out_dir)
+                # self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, prefix='extend', out_dir=out_dir)
+                self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, prefix='extend')
             
             # (5) 편집 이전의 weight로 복원 및 테스트
             if do_restore:
