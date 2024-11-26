@@ -3,12 +3,22 @@
 # 오류가 발생하면 즉시 정지
 set -e
 
-DATA_DIR='./data/preprocessing/sequential_identical_subjects/each/identical4'
-LOG_DIR='./logs/sequential_identical_subjects'
+DATA_DIR='./data/preprocessing/multiple_identical_subjects'
+LOG_DIR='./logs/multiple_identical_subjects'
 
 # 이 부분에서 에러 안 나려면, 맨 위에서 'bash'로 실행해야 함
 ARGS_LIST=(
-	"5 mcf_sequential_identical4_subjects_all"
+	"1000 mcf_multiple_identical_subjects_1000_10:0"
+	"1000 mcf_multiple_identical_subjects_1000_0:10"
+	"1000 mcf_multiple_identical_subjects_1000_9:1"
+	"1000 mcf_multiple_identical_subjects_1000_8:2"
+	"1000 mcf_multiple_identical_subjects_1000_7:3"
+	"1000 mcf_multiple_identical_subjects_1000_6:4"
+	"1000 mcf_multiple_identical_subjects_1000_5:5"
+	"1000 mcf_multiple_identical_subjects_1000_4:6"
+	"1000 mcf_multiple_identical_subjects_1000_3:7"
+	"1000 mcf_multiple_identical_subjects_1000_2:8"
+	"1000 mcf_multiple_identical_subjects_1000_1:9"
 )
 
 

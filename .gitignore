@@ -1,4 +1,5 @@
 # Pipeline dumps, data directory
+_backup*
 logs*
 results*
 data

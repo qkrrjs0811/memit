@@ -189,6 +189,109 @@ def check_identical(datas):
     return False
 
 
+def sr_swap(prompt: str, subject: str):
+    eojs = prompt.split()
+
+    idx = -1
+    eoj, suffix = '#%#', '#%#'
+
+    for i, eoj in enumerate(eojs):
+        idx = i
+        if '{}' == eoj:
+            suffix = ''
+        if '{}' in eoj:
+            suffix = eoj[2:]
+        else:
+            idx = -1
+        
+        if idx != -1:
+            break
+    
+    if idx == -1:
+        print(f'### sr_swap() error : prompt = {prompt}, subject = {subject}')
+        return None, None
+    elif idx == 0:
+        relation = ' '.join(eojs[1:])
+        prompt_sr_swap = f'{subject}{suffix}' + ' {}'
+    else:
+        left = ' '.join(eojs[:idx])
+        right = ' '.join(eojs[idx+1:])
+
+        if ('play?' in right) or (left == 'The headquarter of' and right == 'is located in'):
+            relation = right
+            prompt_sr_swap = f'{left} {subject}{suffix}' + ' {}'
+        elif len(left) < len(right):
+            relation = right
+            prompt_sr_swap = f'{left} {subject}{suffix}' + ' {}'
+        elif len(left) > len(right):
+            relation = left
+            prompt_sr_swap = '{} ' + f'{subject}{suffix} {right}'
+        else:
+            return None, None
+    
+    return prompt_sr_swap, relation
+
+
+def rm_relation_last(prompt: str, relation: str):
+    prompt_eojs = prompt.split()
+    relation_eojs = relation.split()
+
+    if 1 < len(relation_eojs):
+        for i, prompt_eoj in enumerate(prompt_eojs):
+            if prompt_eoj == '{}':
+                prompt = ' '.join(prompt_eojs[:i+1])
+                relation = ' '.join(relation_eojs[:-1])
+
+                prompt += f' {relation_eojs[-1]}'
+
+                if i+1 < len(prompt_eojs):
+                    prompt_other = ' '.join(prompt_eojs[i+1:])
+                    prompt += f' {prompt_other}'
+
+                break
+
+    return prompt, relation
+
+
+def make_datas_sr_swap(datas, out_path: str):
+    datas_sr_swap, datas_sr_swap_post = [], []
+
+    for data in datas:
+        prompt = data['requested_rewrite']['prompt']
+        subject = data['requested_rewrite']['subject']
+
+        prompt_sr_swap, relation = sr_swap(prompt, subject)
+        prompt_sr_swap_post, relation_post = rm_relation_last(prompt_sr_swap, relation)        
+        
+        ''' 확인용 코드'''
+        text1 = prompt.format(subject)
+        text2 = prompt_sr_swap.format(relation)
+        text3 = prompt_sr_swap_post.format(relation_post)
+        if not (text1 == text2 and text2 == text3):
+            print(f'prompt : {prompt}')
+            print(f'subject : {subject}\n')
+            print(f'prompt_sr_swap : {prompt_sr_swap}')
+            print(f'relation : {relation}\n')
+            print(f'prompt_sr_swap_post : {prompt_sr_swap_post}')
+            print(f'relation_post : {relation_post}\n')
+            sys.exit(-1)
+        
+        ''' 변경된 데이터 생성 '''
+        data_sr_swap = deepcopy(data)
+        data_sr_swap['requested_rewrite']['prompt'] = prompt_sr_swap
+        data_sr_swap['requested_rewrite']['subject'] = relation
+        data_sr_swap_post = deepcopy(data)
+        data_sr_swap_post['requested_rewrite']['prompt'] = prompt_sr_swap_post
+        data_sr_swap_post['requested_rewrite']['subject'] = relation_post
+
+        datas_sr_swap.append(data_sr_swap)
+        datas_sr_swap_post.append(data_sr_swap_post)
+    
+    if out_path is not None:
+        write_datas(out_path.format('_sr_swap'), datas_sr_swap)
+        write_datas(out_path.format('_sr_swap_post'), datas_sr_swap_post)
+
+    return datas_sr_swap, datas_sr_swap_post
 
 
 def get_model_editor(num_edits=100):
@@ -218,7 +321,7 @@ def get_model_editor(num_edits=100):
 
 
 
-def run(out_path, datas=None):
+def run1(out_path, datas=None):
     if datas is None:
         model_editor = get_model_editor()
         model_editor.load_data()
@@ -262,6 +365,14 @@ def run(out_path, datas=None):
     make_datas_sequential(datas_list, out_file_path)
 
 
+def run2(out_path: str, in_paths: list):
+    for in_path in in_paths:
+        datas = load_datas(out_path + in_path.format(''))
+        make_datas_sr_swap(datas, out_path + in_path)
+        
+        
+
+
 
 
 
@@ -272,5 +383,11 @@ if __name__ == "__main__":
     
     in_file_path = f'{data_dir}/multi_counterfact.json'
     datas = load_datas(in_file_path)
-    run(out_path, datas)
+    run1(out_path, datas)
+
+    in_paths = ['/multi_counterfact_identical1_ext_rn_1000{}.json',
+                '/multi_counterfact_identical2_ext_n_1000{}.json',
+                '/multi_counterfact_identical3_all_105{}.json',
+                '/multi_counterfact_identical4_all_20{}.json']
+    run2(out_path, in_paths)
 
