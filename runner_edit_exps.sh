@@ -3,22 +3,19 @@
 # 오류가 발생하면 즉시 정지
 set -e
 
-DATA_DIR='./data/preprocessing/multiple_identical_subjects'
-LOG_DIR='./logs/multiple_identical_subjects'
+DATA_DIR='./data/preprocessing'
+LOG_DIR='./logs/sr_swap'
 
-# 이 부분에서 에러 안 나려면, 맨 위에서 'bash'로 실행해야 함
+# 이 부분에서 에러 안 나려면 'bash'로 실행해야 함
 ARGS_LIST=(
-	"1000 mcf_multiple_identical_subjects_1000_10:0"
-	"1000 mcf_multiple_identical_subjects_1000_0:10"
-	"1000 mcf_multiple_identical_subjects_1000_9:1"
-	"1000 mcf_multiple_identical_subjects_1000_8:2"
-	"1000 mcf_multiple_identical_subjects_1000_7:3"
-	"1000 mcf_multiple_identical_subjects_1000_6:4"
-	"1000 mcf_multiple_identical_subjects_1000_5:5"
-	"1000 mcf_multiple_identical_subjects_1000_4:6"
-	"1000 mcf_multiple_identical_subjects_1000_3:7"
-	"1000 mcf_multiple_identical_subjects_1000_2:8"
-	"1000 mcf_multiple_identical_subjects_1000_1:9"
+	"1000 identical1_ext_rn_1000_sr_swap"
+	"1000 identical2_ext_n_1000_sr_swap"
+	"105 identical3_all_105_sr_swap"
+	"20 identical4_all_20_sr_swap"
+	"1000 identical1_ext_rn_1000_sr_swap_post"
+	"1000 identical2_ext_n_1000_sr_swap_post"
+	"105 identical3_all_105_sr_swap_post"
+	"20 identical4_all_20_sr_swap_post"
 )
 
 
@@ -28,7 +25,7 @@ for ARGS_ in "${ARGS_LIST[@]}"; do
 	NUM_EDITS=${ARGS[0]}
 	FILE_PATH=${ARGS[1]}
 
-	IN_FILE_PATH=$DATA_DIR"/"$FILE_PATH".json"
+	IN_FILE_PATH=$DATA_DIR"/multi_counterfact_"$FILE_PATH".json"
 	LOG_FILE_PATH=$LOG_DIR"/log_"$FILE_PATH"_batch"$NUM_EDITS".txt"
 
 	echo "num_edits : $NUM_EDITS"

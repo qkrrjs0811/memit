@@ -345,18 +345,18 @@ class ModelEditor:
             print(f'# ModelEditor.restore_weights() weights restored\n')
 
 
-    def edit_ext_datas(self, datas, do_print=False, do_extend=False, do_restore=False, do_restore_test=False):
+    def edit_ext_datas(self, datas, do_print=False, do_extend=False, do_restore=False, do_restore_test=False, do_only_predict=False):
         self._ds = datas
-        self.edit(do_print, do_extend, do_restore, do_restore_test)
+        self.edit(do_print, do_extend, do_restore, do_restore_test, do_only_predict)
 
 
-    def edit(self, do_print=True, do_extend=True, do_restore=False, do_restore_test=False):
+    def edit(self, do_print=True, do_extend=True, do_restore=False, do_restore_test=False, do_only_predict=False):
         if self._num_edits > 1:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
         
         ##### flag 설정 #####
-        print(f'\n# ModelEditor.edit() do_print:{do_print}, do_extend:{do_extend}, do_restore:{do_restore}, do_restore_test:{do_restore_test}\n')
+        print(f'\n# ModelEditor.edit() do_print:{do_print}, do_extend:{do_extend}, do_restore:{do_restore}, do_restore_test:{do_restore_test}, do_only_predict:{do_only_predict}\n')
 
         # 누적 실험을 위한 리스트
         record_chunks_ext, case_ids_ext = [], []
@@ -378,6 +378,9 @@ class ModelEditor:
             
             # (1) 기존 결과 확인
             self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='org')
+
+            if do_only_predict:
+                continue
 
             # (2) 모델 편집
             '''
