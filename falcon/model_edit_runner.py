@@ -106,12 +106,13 @@ if __name__ == "__main__":
     )
 
 
-    do_print, do_extend, do_restore, do_restore_test = True, True, False, False
+    do_org_test, do_edit, do_edit_test, do_extend_test = True, True, True, True
+    do_restore, do_restore_test, do_print = False, False, True
 
     if args.in_file_path is None:
         model_editor.load_data()
-        model_editor.edit(do_print, do_extend, do_restore, do_restore_test)
+        model_editor.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print)
     else:
         datas = load_json_file(args.in_file_path, do_print=True)
-        model_editor.edit_ext_datas(datas, do_print, do_extend, do_restore, do_restore_test)
+        model_editor.edit_ext_datas(datas, do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print)
 

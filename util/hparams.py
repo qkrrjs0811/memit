@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 
 @dataclass
@@ -14,3 +14,12 @@ class HyperParams:
             data = json.load(f)
 
         return cls(**data)
+
+
+    def update_from_dict(self, hparams_mod: dict):
+        for field in fields(self):
+            field_name = field.name
+
+            if field_name in hparams_mod.keys():
+                setattr(self, field_name, hparams_mod[field_name])
+

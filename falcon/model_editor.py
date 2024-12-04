@@ -72,7 +72,8 @@ class ModelEditor:
                  dir_name: str,
                  num_edits=1,
                  use_cache=False,
-                 output_hidden_states=False
+                 output_hidden_states=False,
+                 hparams_mod=None
                 ):
         self._alg_name = alg_name
         self._model_name = model_name
@@ -95,7 +96,7 @@ class ModelEditor:
         self._check_continue_from_run()
 
         self._hparams = None
-        self._set_params()
+        self._set_params(hparams_mod)
 
         self._model: AutoModelForCausalLM
         self._tok: AutoTokenizer
@@ -151,7 +152,7 @@ class ModelEditor:
         print(f'# ModelEditor._check_continue_from_run() Results will be stored at [{self._run_dir}]')
     
 
-    def _set_params(self):
+    def _set_params(self, hparams_mod: dict=None):
         if self._continue_from_run is None:
             params_path = HPARAMS_DIR / self._alg_name / self._hparams_fname
         else:
@@ -161,8 +162,13 @@ class ModelEditor:
         self._hparams = self._params_class.from_json(params_path)
         if not (self._run_dir / 'params.json').exists():
             shutil.copyfile(params_path, self._run_dir / 'params.json')
-        print(f'# ModelEditor._set_params() [Executing {self._alg_name} with parameters]\n{self._hparams}\n')
-    
+        print(f'# ModelEditor._set_params() [Executing {self._alg_name} with parameters]\n\n{self._hparams}\n')
+
+        # 외부에서 파라미터를 변경해야되는 경우
+        if hparams_mod is not None:
+            self._hparams.update_from_dict(hparams_mod)
+            print(f'# ModelEditor._set_params() [Updated parameters]\n\n{self._hparams}\n')
+
 
     def _init_model(self):
         if type(self._model_name) is str:
@@ -345,18 +351,20 @@ class ModelEditor:
             print(f'# ModelEditor.restore_weights() weights restored\n')
 
 
-    def edit_ext_datas(self, datas, do_print=False, do_extend=False, do_restore=False, do_restore_test=False, do_only_predict=False):
+    def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True):
         self._ds = datas
-        self.edit(do_print, do_extend, do_restore, do_restore_test, do_only_predict)
+        self.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print)
 
 
-    def edit(self, do_print=True, do_extend=True, do_restore=False, do_restore_test=False, do_only_predict=False):
+    def edit(self, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True):
         if self._num_edits > 1:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
         
-        ##### flag 설정 #####
-        print(f'\n# ModelEditor.edit() do_print:{do_print}, do_extend:{do_extend}, do_restore:{do_restore}, do_restore_test:{do_restore_test}, do_only_predict:{do_only_predict}\n')
+        ##### flag 출력 #####
+        print(f'\n# ModelEditor.edit() args')
+        print(f'\tdo_org_test : {do_org_test}, do_edit : {do_edit}, do_edit_test : {do_edit_test}, do_extend_test : {do_extend_test}')
+        print(f'\tdo_restore : {do_restore}, do_restore_test : {do_restore_test}, do_print : {do_print}\n')
 
         # 누적 실험을 위한 리스트
         record_chunks_ext, case_ids_ext = [], []
@@ -377,32 +385,32 @@ class ModelEditor:
 
             
             # (1) 기존 결과 확인
-            self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='org')
-
-            if do_only_predict:
-                continue
+            if do_org_test:
+                self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='org')
 
             # (2) 모델 편집
             '''
                 - ROME : rome_main.apply_rome_to_model()
                 - MEMIT : memit_main.apply_memit_to_model()
             '''
-            start = time.time()
-            edited_model, self._weights_copy = self._apply_algo(
-                self._model, self._tok,
-                [{'case_id': record['case_id'], **record['requested_rewrite']} for record in record_chunks],
-                self._hparams, copy=False, return_orig_weights=True,
-                **args_conserve_memory, **etc_args
-            )
-            exec_time = time.time() - start
-            print(f'### Execution took : {exec_time}\n\n')
+            if do_edit:
+                start = time.time()
+                edited_model, self._weights_copy = self._apply_algo(
+                    self._model, self._tok,
+                    [{'case_id': record['case_id'], **record['requested_rewrite']} for record in record_chunks],
+                    self._hparams, copy=False, return_orig_weights=True,
+                    **args_conserve_memory, **etc_args
+                )
+                exec_time = time.time() - start
+                print(f'### Execution took : {exec_time}\n\n')
 
             # (3) 변경된 결과 확인
-            self._predict_all(edited_model, self._tok, record_chunks, do_print=do_print, prefix='edited')
+            if do_edit_test:
+                self._predict_all(edited_model, self._tok, record_chunks, do_print=do_print, prefix='edited')
 
 
             # (4) 현재까지의 전체 데이터 테스트
-            if do_extend:
+            if do_extend_test:
                 record_chunks_ext.extend(record_chunks)
                 case_ids_ext.extend(case_ids)
 
@@ -422,7 +430,7 @@ class ModelEditor:
                 self.restore_weights()
 
                 if do_restore_test:
-                    if not do_extend:
+                    if not do_extend_test:
                         print('\n\n######################################## restored ########################################\n')
                         self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='restored')
                     # else:
