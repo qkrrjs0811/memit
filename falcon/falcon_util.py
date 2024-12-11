@@ -106,6 +106,39 @@ def remove_symbol_edge(text: str, symbols=PUNCTUATION):
     return text.strip(symbols)
 
 
+def get_file_name(file_path: str, rm_ext_flag=False) :
+    file_name = os.path.basename(file_path)
+
+    if rm_ext_flag :
+        idx = file_name.rfind(FILE_EXT)
+
+        if idx != -1 :
+            file_name = file_name[:idx]
+    
+    return file_name
+
+
+def get_file_paths(in_path: str, inner_flag=True) :
+    file_paths = []
+
+    if inner_flag :
+        for (parent_path, dirs, file_names) in os.walk(in_path) :
+                for file_name in file_names :
+                    file_path = os.path.join(parent_path, file_name)
+
+                    if os.path.isfile(file_path) :
+                        file_paths.append(file_path)
+    else :
+        file_names = os.listdir(in_path)
+        for file_name in file_names :
+            file_path = os.path.join(in_path, file_name)
+
+            if os.path.isfile(file_path) :
+                file_paths.append(file_path)
+
+    return file_paths
+
+
 def exists(file_path: str):
     if file_path == None or len(file_path) == 0:
         return False

@@ -369,8 +369,16 @@ def run2(out_path: str, in_paths: list):
     for in_path in in_paths:
         datas = load_datas(out_path + in_path.format(''))
         make_datas_sr_swap(datas, out_path + in_path)
-        
-        
+
+
+def run3(in_path: str):
+    in_file_paths = get_file_paths(in_path, True)
+
+    for in_file_path in in_file_paths:
+        if not in_file_path.endswith('_all.json'):
+            file_path = in_file_path.split('.')[0].strip() + '{}.json'
+            datas = load_datas(file_path.format(''))
+            make_datas_sr_swap(datas, file_path)
 
 
 
@@ -390,4 +398,7 @@ if __name__ == "__main__":
                 '/multi_counterfact_identical3_all_105{}.json',
                 '/multi_counterfact_identical4_all_20{}.json']
     run2(out_path, in_paths)
+
+    in_path = f'{data_dir}/preprocessing/sequential_identical_subjects/each'
+    run3(in_path)
 

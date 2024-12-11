@@ -1,5 +1,6 @@
 import random
 from copy import deepcopy
+from tqdm import tqdm
 
 from .falcon_util import *
 from .model_editor import *
@@ -105,7 +106,7 @@ def run_241201():
     model_editor_relation.edit_ext_datas(datas_relation, True, True, True, False, False, False)
 
 
-def run_241204():
+def run_241204_multiple():
     home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
@@ -123,12 +124,17 @@ def run_241204():
     model_editor_subject = get_model_editor(num_edits)
     model_editor_subject.edit_ext_datas(datas_subject, False, True, False, False, False, False)
 
-    layers_list = [[13, 14, 15, 16, 17], [14, 15, 16, 17, 18], [15, 16, 17, 18, 19], [16, 17, 18, 19, 20], [17, 18, 19, 20, 21],
-                   [18, 19, 20, 21, 22], [19, 20, 21, 22, 23], [20, 21, 22, 23, 24], [21, 22, 23, 24, 25], [22, 23, 24, 25, 26],
-                   [23, 24, 25, 26, 27], [24, 25, 26, 27, 28], [25, 26, 27, 28, 29], [26, 27, 28, 29, 30], [27, 28, 29, 30, 31],
-                   [28, 29, 30, 31, 32], [29, 30, 31, 32, 33], [30, 31, 32, 33, 34], [31, 32, 33, 34, 35], [32, 33, 34, 35, 36]]
+    layers_list = [[0, 1, 2, 3, 4], [1, 2, 3, 4, 5], [2, 3, 4, 5, 6], [3, 4, 5, 6, 7], [4, 5, 6, 7, 8],
+                   [5, 6, 7, 8, 9], [6, 7, 8, 9, 10], [7, 8, 9, 10, 11], [8, 9, 10, 11, 12], [9, 10, 11, 12, 13],
+                   [10, 11, 12, 13, 14], [11, 12, 13, 14, 15], [12, 13, 14, 15, 16], [13, 14, 15, 16, 17], [14, 15, 16, 17, 18],
+                   [15, 16, 17, 18, 19], [16, 17, 18, 19, 20], [17, 18, 19, 20, 21], [18, 19, 20, 21, 22], [19, 20, 21, 22, 23],
+                   [20, 21, 22, 23, 24], [21, 22, 23, 24, 25], [22, 23, 24, 25, 26], [23, 24, 25, 26, 27], [24, 25, 26, 27, 28],
+                   [25, 26, 27, 28, 29], [26, 27, 28, 29, 30], [27, 28, 29, 30, 31], [28, 29, 30, 31, 32], [29, 30, 31, 32, 33],
+                   [30, 31, 32, 33, 34], [31, 32, 33, 34, 35], [32, 33, 34, 35, 36], [33, 34, 35, 36, 37], [34, 35, 36, 37, 38],
+                   [35, 36, 37, 38, 39], [36, 37, 38, 39, 40], [37, 38, 39, 40, 41], [38, 39, 40, 41, 42], [39, 40, 41, 42, 43],
+                   [40, 41, 42, 43, 44], [41, 42, 43, 44, 45], [42, 43, 44, 45, 46], [43, 44, 45, 46, 47]]
 
-    for layers in layers_list:
+    for layers in tqdm(layers_list):
         hparams_mod = {'layers': layers}
         model_editor_relation = get_model_editor(num_edits, '_test', hparams_mod)
 
@@ -139,11 +145,54 @@ def run_241204():
         model_editor_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
 
 
+def run_241206_sequential():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
+
+
+    for identical_num, num_edits in zip([4, 3, 2], [5, 35, 500]):
+        in_path = f'{data_dir}/identical{identical_num}'
+
+        model_editor_subject = get_model_editor(num_edits)
+        model_editor_relation = get_model_editor(num_edits, '_test', {'layers': [26, 27, 28, 29, 30]})
+
+        datas_batchs, datas_extend = [], []
+        
+        for batch_idx in tqdm(range(1, identical_num+1)):
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
+            datas_subject = load_datas(in_file_path)
+
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}_sr_swap_post.json'
+            datas_relation = load_datas(in_file_path)
+
+            if batch_idx > 1:
+                model_editor_subject._model = deepcopy(model_editor_relation._model)
+
+            model_editor_subject.edit_ext_datas(datas_subject, True, True, True, False, False, False)
+            model_editor_relation._model = deepcopy(model_editor_subject._model)
+            model_editor_relation.edit_ext_datas(datas_relation, True, True, True, False, False, False)
+
+            datas_batchs.append(datas_subject)
+            datas_extend.extend(datas_subject)
+
+            if len(datas_batchs) > 1:
+                print(f'\n### datas_extend size : {len(datas_extend)}\n')
+                for i, datas_batch in enumerate(datas_batchs):
+                    print(f'[{i}] batch size : {len(datas_batch)}')
+                    model_editor_relation.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+
+                # 테스트 용
+                # print(f'\n### datas_extend size : {len(datas_extend)}\n')
+                # model_editor_relation._num_edits = len(datas_extend)
+                # model_editor_relation.edit_ext_datas(datas_extend, True, False, False, False, False, False)
+                # model_editor_relation._num_edits = num_edits
+        # break
 
 
 
 if __name__ == "__main__":
     # run()
     # run_241201()
-    run_241204()
+    # run_241204_multiple()
+    run_241206_sequential()
 
