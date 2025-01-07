@@ -189,10 +189,37 @@ def run_241206_sequential():
         # break
 
 
+def run_241219_multiple():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
+
+    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
+    num_edits = 1000
+    hparams_mod = {'layers': [26, 27, 28, 29, 30]}
+    
+    for i in tqdm(range(11)):
+        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), "")
+        datas_subject = load_datas(in_file_path)
+
+        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), "_sr_swap_post")
+        datas_relation = load_datas(in_file_path)
+
+        # 기존 subject 데이터로 편집 수행
+        model_editor_subject = get_model_editor(num_edits)
+        model_editor_subject.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+
+        # subject 편집기의 편집된 모델을 relation 편집기로 복사
+        model_editor_relation = get_model_editor(num_edits, '_test', hparams_mod)
+        model_editor_relation._model = deepcopy(model_editor_subject._model)
+
+        # subject 편집된 웨이트를 가진 relation 편집기에 relation 데이터로 편집
+        model_editor_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
+
 
 if __name__ == "__main__":
     # run()
     # run_241201()
     # run_241204_multiple()
-    run_241206_sequential()
+    # run_241206_sequential()
+    run_241219_multiple()
 

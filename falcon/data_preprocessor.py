@@ -261,7 +261,7 @@ def make_datas_sr_swap(datas, out_path: str):
         subject = data['requested_rewrite']['subject']
 
         prompt_sr_swap, relation = sr_swap(prompt, subject)
-        prompt_sr_swap_post, relation_post = rm_relation_last(prompt_sr_swap, relation)        
+        prompt_sr_swap_post, relation_post = rm_relation_last(prompt_sr_swap, relation)
         
         ''' 확인용 코드'''
         text1 = prompt.format(subject)
@@ -294,6 +294,27 @@ def make_datas_sr_swap(datas, out_path: str):
     return datas_sr_swap, datas_sr_swap_post
 
 
+def make_datas_sr_both(datas, out_path: str):
+    datas_sr_both = []
+
+    for data in datas:
+        prompt = data['requested_rewrite']['prompt']
+        subject = data['requested_rewrite']['subject']
+
+        prompt_sr_swap, relation = sr_swap(prompt, subject)
+        prompt_sr_swap_post, relation_post = rm_relation_last(prompt_sr_swap, relation)
+
+        ''' 변경된 데이터 생성 '''
+        data_sr_both = deepcopy(data)
+        data_sr_both['requested_rewrite']['rel_prompt'] = prompt_sr_swap_post
+        data_sr_both['requested_rewrite']['relation'] = relation_post
+
+        datas_sr_both.append(data_sr_both)
+    
+    if out_path is not None:
+        write_datas(out_path.format('_sr_both'), datas_sr_both)
+
+
 def get_model_editor(num_edits=100):
     alg_name = 'MEMIT'
     model_name = 'gpt2-xl'
@@ -321,7 +342,7 @@ def get_model_editor(num_edits=100):
 
 
 
-def run1(out_path, datas=None):
+def run1(datas, out_path):
     if datas is None:
         model_editor = get_model_editor()
         model_editor.load_data()
@@ -365,10 +386,10 @@ def run1(out_path, datas=None):
     make_datas_sequential(datas_list, out_file_path)
 
 
-def run2(out_path: str, in_paths: list):
-    for in_path in in_paths:
-        datas = load_datas(out_path + in_path.format(''))
-        make_datas_sr_swap(datas, out_path + in_path)
+def run2(file_names: list, out_path: str):
+    for file_name in file_names:
+        datas = load_datas(os.path.join(out_path, file_name.format('')))
+        make_datas_sr_swap(datas, os.path.join(out_path, file_name))
 
 
 def run3(in_path: str):
@@ -381,6 +402,12 @@ def run3(in_path: str):
             make_datas_sr_swap(datas, file_path)
 
 
+def run4(file_names: list, out_path: str):
+    for file_name in file_names:
+        datas = load_datas(os.path.join(out_path, file_name.format('')))
+        make_datas_sr_both(datas, os.path.join(out_path, file_name))
+
+
 
 
 
@@ -390,15 +417,30 @@ if __name__ == "__main__":
     out_path = f'{data_dir}/preprocessing'
     
     in_file_path = f'{data_dir}/multi_counterfact.json'
-    datas = load_datas(in_file_path)
-    run1(out_path, datas)
+    # datas = load_datas(in_file_path)
+    # run1(datas, out_path)
 
-    in_paths = ['/multi_counterfact_identical1_ext_rn_1000{}.json',
-                '/multi_counterfact_identical2_ext_n_1000{}.json',
-                '/multi_counterfact_identical3_all_105{}.json',
-                '/multi_counterfact_identical4_all_20{}.json']
-    run2(out_path, in_paths)
+    file_names = ['multi_counterfact_identical1_ext_rn_1000{}.json',
+                  'multi_counterfact_identical2_ext_n_1000{}.json',
+                  'multi_counterfact_identical3_all_105{}.json',
+                  'multi_counterfact_identical4_all_20{}.json']
+    # run2(file_names, out_path)
+    # run4(file_names, out_path)
 
     in_path = f'{data_dir}/preprocessing/sequential_identical_subjects/each'
-    run3(in_path)
+    # run3(in_path)
+
+    file_names = ['mcf_multiple_identical_subjects_1000_10:0{}.json',
+                  'mcf_multiple_identical_subjects_1000_9:1{}.json',
+                  'mcf_multiple_identical_subjects_1000_8:2{}.json',
+                  'mcf_multiple_identical_subjects_1000_7:3{}.json',
+                  'mcf_multiple_identical_subjects_1000_6:4{}.json',
+                  'mcf_multiple_identical_subjects_1000_5:5{}.json',
+                  'mcf_multiple_identical_subjects_1000_4:6{}.json',
+                  'mcf_multiple_identical_subjects_1000_3:7{}.json',
+                  'mcf_multiple_identical_subjects_1000_2:8{}.json',
+                  'mcf_multiple_identical_subjects_1000_1:9{}.json',
+                  'mcf_multiple_identical_subjects_1000_0:10{}.json']
+    out_path = f'{data_dir}/preprocessing/multiple_identical_subjects'
+    run2(file_names, out_path)
 
