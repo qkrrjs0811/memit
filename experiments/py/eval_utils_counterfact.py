@@ -19,6 +19,12 @@ from util.generate import generate_fast
 from util.perplexity import perplexity
 
 
+# 실험을 위해서 임시로 설정
+SEED = 7
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+
+
 def compute_rewrite_quality_counterfact(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
@@ -81,7 +87,7 @@ def compute_rewrite_quality_counterfact(
         [1 for _ in range(len(neighborhood_prompts))],
     ]
     # Flatten all the evaluated prefixes into one list.
-    probs, targets_correct = test_batch_prediction(
+    probs, targets_correct, logits = test_batch_prediction(
         model,
         tok,
         list(chain(*prob_prompts)),

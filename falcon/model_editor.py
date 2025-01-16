@@ -39,6 +39,10 @@ DS_DICT = {
 }
 
 
+class FLAGS :
+    DO_EVAL_NEW_MODEL = True
+
+
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -93,6 +97,7 @@ class ModelEditor:
         self._print_init()
 
         self._run_dir = ''
+        self._case_result_template = ''
         self._check_continue_from_run()
 
         self._hparams = None
@@ -149,6 +154,9 @@ class ModelEditor:
             self._run_dir = RESULTS_DIR/self._dir_name/f'run_{str(run_id).zfill(3)}'
             self._run_dir.mkdir(parents=True, exist_ok=True)
         
+        # 실험 결과를 저장하는 파일명 템플릿
+        self._case_result_template = str(self._run_dir / '{}_edits-case_{}.json')
+        
         print(f'# ModelEditor._check_continue_from_run() Results will be stored at [{self._run_dir}]')
     
 
@@ -193,10 +201,10 @@ class ModelEditor:
             print(f'# ModelEditor._check_cache() Will load cache from {self._cache_template}')
 
 
-    def _check_already(self, record_chunks, case_result_template: str):
+    def _check_already(self, record_chunks):
         already_finished = True
         for record in record_chunks:
-            if not Path(case_result_template.format(self._num_edits, record['case_id'])).exists():
+            if not Path(self._case_result_template.format(self._num_edits, record['case_id'])).exists():
                 already_finished = False
                 break
         
@@ -332,15 +340,56 @@ class ModelEditor:
                 out_file.close()
     
 
-    def load_data(self):
+    def _load_data(self):
         self._snips = AttributeSnippets(DATA_DIR) if not self._skip_generation_tests else None
         self._vec = get_tfidf_vectorizer(DATA_DIR) if not self._skip_generation_tests else None
 
         self._ds_class, self._ds_eval_method = DS_DICT[self._ds_name]
-        print(f'# ModelEditor.data_load() ds_class : {self._ds_class}')
-        print(f'# ModelEditor.data_load() ds_eval_method : {self._ds_eval_method}\n')
+        print(f'# ModelEditor._load_data() ds_class : {self._ds_class}')
+        print(f'# ModelEditor._load_data() ds_eval_method : {self._ds_eval_method}\n')
+
+
+    def load_data(self):
+        self._load_data()
         self._ds = self._ds_class(DATA_DIR, tok=self._tok, size=self._dataset_size_limit)
     
+
+    def _evaluate(self, model, tok, records, exec_time):
+        case_ids = [record['case_id'] for record in records]
+        gen_test_vars = [self._snips, self._vec]
+
+        start = time.time()
+        for record in records:
+            out_file = Path(self._case_result_template.format(self._num_edits, record['case_id']))
+            if out_file.exists():
+                print(f'# ModelEditor._evaluate() skipping [{out_file}] already exists')
+                continue
+
+            metrics = {
+                "case_id": record["case_id"],
+                "grouped_case_ids": case_ids,
+                "num_edits": self._num_edits,
+                "requested_rewrite": record["requested_rewrite"],
+                "time": exec_time,
+                "post": self._ds_eval_method(
+                    model,
+                    tok,
+                    record,
+                    *(
+                        gen_test_vars
+                        if record["case_id"] % self._generation_test_interval == 0
+                        else [None, None]
+                    ),  # Only test generation every generation_test_interval cases
+                ),
+            }
+
+            # Dump metrics in .json
+            with open(out_file, "w") as f:
+                json.dump(metrics, f, indent=1)
+
+        eval_time = time.time() - start
+        print(f'# ModelEditor._evaluate() Evaluation took : {eval_time}\n\n')
+
 
     def restore_weights(self):
         with torch.no_grad():
@@ -352,6 +401,7 @@ class ModelEditor:
 
 
     def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True):
+        self._load_data()
         self._ds = datas
         self.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print)
 
@@ -370,10 +420,8 @@ class ModelEditor:
         record_chunks_ext, case_ids_ext = [], []
 
         for record_chunks in chunks(self._ds, self._num_edits):
-            case_result_template = str(self._run_dir / '{}_edits-case_{}.json') # output file
-
             # 기존에 작업한 데이터인지 확인
-            if self._check_already(record_chunks, case_result_template):
+            if self._check_already(record_chunks):
                 continue
 
             # cpu, gpu, cache 설정
@@ -402,7 +450,11 @@ class ModelEditor:
                     **args_conserve_memory, **etc_args
                 )
                 exec_time = time.time() - start
-                print(f'### Execution took : {exec_time}\n\n')
+                print(f'# ModelEditor.edit() Execution took : {exec_time}\n\n')
+
+                # 변경된 모델에 대해서 성능 평가
+                if FLAGS.DO_EVAL_NEW_MODEL:
+                    self._evaluate(edited_model, self._tok, record_chunks, exec_time)
 
             # (3) 변경된 결과 확인
             if do_edit_test:

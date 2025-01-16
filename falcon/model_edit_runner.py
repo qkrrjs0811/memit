@@ -106,6 +106,9 @@ if __name__ == "__main__":
     )
 
 
+    '''
+        evaluate_summarize.sh 로 평가하려면, do_edit만 True로 주고 나머지는 전부 False
+    '''
     do_org_test, do_edit, do_edit_test, do_extend_test = True, True, True, True
     do_restore, do_restore_test, do_print = False, False, True
 
