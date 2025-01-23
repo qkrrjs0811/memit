@@ -237,36 +237,40 @@ class ModelEditor:
         return re.sub(r'[\t\n ]+', ' ', gen_texts).strip()
 
 
-    def _predict_all(self, model, tok, records, top_k=1, max_out_len=100, do_print=False, prefix='', gen_prompt_size=1, out_dir=''):
+    def _predict_all(self, model, tok, records, top_k=1, max_out_len=100, do_print=False, print_prefix='', gen_prompt_size=1, out_dir=''):
         performance = 0
 
         for idx, record in enumerate(records):
-            cnt = idx + 1 if 'extend' in prefix else self._cnt + idx + 1
-            ret = self._predict(model, tok, record, top_k, max_out_len, do_print, f'[{cnt}] {prefix}', gen_prompt_size)
+            cnt = idx + 1 if 'extend' in print_prefix else self._cnt + idx + 1
+            ret = self._predict(model, tok, record, top_k, max_out_len, do_print, f'[{cnt}] {print_prefix}', gen_prompt_size)
             
             if len(out_dir) > 0:
                 logits = ret['logits']
-                self._write_logits(out_dir.format(prefix), logits, self._tok, idx)
+                self._write_logits(out_dir.format(print_prefix), logits, self._tok, idx)
             
             if is_true(ret['targets_correct']):
                 performance += 1
         
         performance_p = performance / len(records)
-        print(f'# ModelEditor._predict_all() # [{prefix}] performance : {performance}/{len(records)} = {performance_p}\n')
+        print(f'# ModelEditor._predict_all() # [{print_prefix}] performance : {performance}/{len(records)} = {performance_p}\n')
 
-        if 'edited' == prefix:
+        if 'edited' == print_prefix:
             self._performances[0].append(performance_p)
-        elif 'extend' == prefix:
+        elif 'extend' == print_prefix:
             self._performances[1].append(performance_p)
-        elif 'restored' in prefix:
+        elif 'restored' in print_prefix:
             self._performances[2].append(performance_p)
 
 
     '''
-        - 단일 데이터에 대해서 결과를 확인하기 위해 만든 임시 함수
-            - eval_utils_counterfact.compute_rewrite_quality_counterfact() 참고
+        - 단일 데이터의 결과 확인을 위한 커스텀 함수
+
+            - experiments.py.eval_utils_counterfact 에서 아래 함수 참고
+
+                - compute_rewrite_quality_counterfact()
+                - test_batch_prediction()
     '''
-    def _predict(self, model, tok, record, top_k=1, max_out_len=100, do_print=False, prefix='', gen_prompt_size=1):
+    def _predict(self, model, tok, record, top_k=1, max_out_len=100, do_print=False, print_prefix='', gen_prompt_size=1):
         case_id = record['case_id']
         subject, target_new, target_true = (
             record['requested_rewrite'][x] for x in ['subject', 'target_new', 'target_true']
@@ -285,24 +289,25 @@ class ModelEditor:
             list(chain(*which_correct)),
             target_new['str'],
             target_true['str'],
-            prefix
+            print_prefix,
+            do_print
         )
 
         gen_texts_r_prompt = self._generate(rewrite_prompts, top_k, max_out_len)
         gen_texts_g_prompt = self._generate(generation_prompts, top_k, max_out_len)
 
         if do_print:
-            print(f'# ModelEditor._predict() [ {prefix} ] case_id : {case_id}')
-            print(f'# ModelEditor._predict() [ {prefix} ] subject : {subject}\n')
+            print(f'# ModelEditor._predict() [ {print_prefix} ] case_id : {case_id}')
+            print(f'# ModelEditor._predict() [ {print_prefix} ] subject : {subject}\n')
 
-            print(f'# ModelEditor._predict() [ {prefix} ] probs : {probs}')
-            print(f'# ModelEditor._predict() [ {prefix} ] targets_correct : {targets_correct}\n')
+            print(f'# ModelEditor._predict() [ {print_prefix} ] probs : {probs}')
+            print(f'# ModelEditor._predict() [ {print_prefix} ] targets_correct : {targets_correct}\n')
                 
-            print(f'# ModelEditor._predict() [ {prefix} ] rewrite_prompts : {rewrite_prompts}')
-            print(f'# ModelEditor._predict() [ {prefix} ] gen_texts_r_prompt : {gen_texts_r_prompt}\n')
+            print(f'# ModelEditor._predict() [ {print_prefix} ] rewrite_prompts : {rewrite_prompts}')
+            print(f'# ModelEditor._predict() [ {print_prefix} ] gen_texts_r_prompt : {gen_texts_r_prompt}\n')
                 
-            print(f'# ModelEditor._predict() [ {prefix} ] generation_prompts : {generation_prompts}')
-            print(f'# ModelEditor._predict() [ {prefix} ] gen_texts_g_prompt : {gen_texts_g_prompt}\n\n')
+            print(f'# ModelEditor._predict() [ {print_prefix} ] generation_prompts : {generation_prompts}')
+            print(f'# ModelEditor._predict() [ {print_prefix} ] gen_texts_g_prompt : {gen_texts_g_prompt}\n\n')
         
         return {'subject': subject, 'probs': probs, 'targets_correct': targets_correct,
                 'gen_texts_r_prompt': gen_texts_r_prompt, 'gen_texts_g_prompt': gen_texts_g_prompt,
@@ -354,7 +359,7 @@ class ModelEditor:
         self._ds = self._ds_class(DATA_DIR, tok=self._tok, size=self._dataset_size_limit)
     
 
-    def _evaluate(self, model, tok, records, exec_time):
+    def _evaluate(self, model, tok, records, exec_time=-1):
         case_ids = [record['case_id'] for record in records]
         gen_test_vars = [self._snips, self._vec]
 
@@ -365,6 +370,7 @@ class ModelEditor:
                 print(f'# ModelEditor._evaluate() skipping [{out_file}] already exists')
                 continue
 
+            # 여기서 사용되는 self._ds_eval_method()는 'experiments.py.eval_utils_counterfact.compute_rewrite_quality_counterfact()'
             metrics = {
                 "case_id": record["case_id"],
                 "grouped_case_ids": case_ids,
@@ -434,7 +440,7 @@ class ModelEditor:
             
             # (1) 기존 결과 확인
             if do_org_test:
-                self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='org')
+                self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='org')
 
             # (2) 모델 편집
             '''
@@ -454,11 +460,12 @@ class ModelEditor:
 
                 # 변경된 모델에 대해서 성능 평가
                 if FLAGS.DO_EVAL_NEW_MODEL:
-                    self._evaluate(edited_model, self._tok, record_chunks, exec_time)
+                    # self._evaluate(edited_model, self._tok, record_chunks, exec_time)
+                    self._evaluate(edited_model, self._tok, record_chunks)
 
             # (3) 변경된 결과 확인
             if do_edit_test:
-                self._predict_all(edited_model, self._tok, record_chunks, do_print=do_print, prefix='edited')
+                self._predict_all(edited_model, self._tok, record_chunks, do_print=do_print, print_prefix='edited')
 
 
             # (4) 현재까지의 전체 데이터 테스트
@@ -473,8 +480,8 @@ class ModelEditor:
                     out_dir += f'/id_{case_ids_ext[:10]}...{case_ids_ext[-1]}'
 
                 print('\n\n######################################## extend ########################################\n')
-                # self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, prefix='extend', out_dir=out_dir)
-                self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, prefix='extend')
+                # self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='extend', out_dir=out_dir)
+                self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='extend')
             
             # (5) 편집 이전의 weight로 복원 및 테스트
             if do_restore:
@@ -484,10 +491,10 @@ class ModelEditor:
                 if do_restore_test:
                     if not do_extend_test:
                         print('\n\n######################################## restored ########################################\n')
-                        self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, prefix='restored')
+                        self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='restored')
                     # else:
                     #     print('\n\n######################################## restored_extend ########################################\n')
-                    #     self._predict_all(self._model, self._tok, record_chunks_ext, do_print=do_print, prefix='restored_extend', out_dir=out_dir)
+                    #     self._predict_all(self._model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='restored_extend', out_dir=out_dir)
 
             self._cnt += len(record_chunks)
             print(f'[{self._cnt}] edit finish\n\n')
