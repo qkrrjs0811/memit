@@ -220,26 +220,29 @@ def run_250117_multiple_evaluate_matrix():
     home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
+    # [02_multiple_two_step] : 000 ~ 007
     # file_names = ['multi_counterfact_identical1_ext_rn_1000',
     #               'multi_counterfact_identical2_ext_n_1000',
     #               'multi_counterfact_identical3_all_105',
     #               'multi_counterfact_identical4_all_20']
-    
-    # 000~007
-    # file_names = ['multi_counterfact_identical4_all_20',
-    #               'multi_counterfact_identical3_all_105',
-    #               'multi_counterfact_identical2_ext_n_1000',
-    #               'multi_counterfact_identical1_ext_rn_1000']
 
-    file_names = ['multi_counterfact_10000',
-                  'multi_counterfact_1000']
+    # [03_multiple_all_two_step] : 000 ~ 003
+    # file_names = ['multi_counterfact_20877',
+    #               'multi_counterfact_20877']
+    # num_edits_list = [10000, 1000]
+
+    # [04_multiple_identical1,2] : 000 ~ 003
+    file_names = ['multi_counterfact_identical1_all_19366',
+                  'multi_counterfact_identical2_all_1386']
+    num_edits_list = [10000, 1386]
 
     
     hparams_mod = {'layers': [26, 27, 28, 29, 30]}
 
-    for file_name in tqdm(file_names):
-        num_edits = int(file_name.split('_')[-1])
+    for file_name, num_edits in tqdm(zip(file_names, num_edits_list)):
+        # num_edits = int(file_name.split('_')[-1])
         # print(f'file_name : {file_name}, num_edits : {num_edits}')
+        # continue
 
         in_file_path = f'{data_dir}/{file_name}.json'
         datas_subject = load_datas(in_file_path)
