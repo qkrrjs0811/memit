@@ -19,12 +19,19 @@ from util.generate import generate_fast
 from util.perplexity import perplexity
 
 
+# 실험을 위해서 임시로 설정
+SEED = 7
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+
+
 def compute_rewrite_quality_counterfact(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
     record: typing.Dict,
     snips: AttributeSnippets,
     vec: TfidfVectorizer,
+    do_print=False
 ) -> typing.Dict:
     """
     Given a rewritten model, computes generalization and specificity metrics for
@@ -67,7 +74,7 @@ def compute_rewrite_quality_counterfact(
         print(f'paraphrase_prompts : {paraphrase_prompts}')
         print(f'neighborhood_prompts : {neighborhood_prompts}')
         print(f'generation_prompts : {generation_prompts}\n\n')
-    _print()
+    if do_print: _print()
 
     # Form a list of lists of prefixes to test.
     prob_prompts = [
@@ -81,13 +88,14 @@ def compute_rewrite_quality_counterfact(
         [1 for _ in range(len(neighborhood_prompts))],
     ]
     # Flatten all the evaluated prefixes into one list.
-    probs, targets_correct = test_batch_prediction(
+    probs, targets_correct, logits = test_batch_prediction(
         model,
         tok,
         list(chain(*prob_prompts)),
         list(chain(*which_correct)),
         target_new["str"],
         target_true["str"],
+        do_print=do_print
     )
     # Unflatten the results again into a list of lists.
     cutoffs = [0] + np.cumsum(list(map(len, prob_prompts))).tolist()
@@ -148,7 +156,8 @@ def test_batch_prediction(
     which_correct: str,
     target_new: str,
     target_true: str,
-    prefix=''
+    print_prefix='',
+    do_print=False
 ):
     """
     which_correct: Which target to consider correct. Either 0 for "new" or 1 for "true".
@@ -177,7 +186,7 @@ def test_batch_prediction(
 
     
     def _print():
-        print(f'\n#################### {prefix} test_batch_prediction()._print() ####################\n')
+        print(f'\n#################### {print_prefix} test_batch_prediction()._print() ####################\n')
         print(f'prefix_lens : {prefix_lens}')
         print(f'prefixes : {prefixes}')
         print(f'target_new : {target_new}')
@@ -186,7 +195,7 @@ def test_batch_prediction(
         print(f'a_tok(n) : {tok.decode(a_tok)}({a_tok})')
         print(f'b_tok(t) : {tok.decode(b_tok)}({b_tok})\n')
         print(f'logits size : {logits.size()}, type : {type(logits)}\n')
-    _print()
+    if do_print: _print()
 
 
     for i in range(logits.size(0)):
@@ -207,7 +216,7 @@ def test_batch_prediction(
             '''
             prob_temp = -torch.nn.functional.log_softmax(logits[i, prefix_lens[i // 2] + j - 1, :], dim=0)
             prob = prob_temp[cur_tok].item()
-            print(f'i=[{i}], j=[{j}] tok : {tok.decode(cur_tok)}({cur_tok}), prob : {prob}')
+            if do_print: print(f'i=[{i}], j=[{j}] tok : {tok.decode(cur_tok)}({cur_tok}), prob : {prob}')
 
             # _cur_tok = (a_tok if i % 2 != 0 else b_tok)[j]
             # _prob = prob_temp[_cur_tok].item()
@@ -215,7 +224,7 @@ def test_batch_prediction(
 
             probs[i] += prob
         probs[i] /= cur_len
-        print(f'i=[{i}] prob_avg : {probs[i]}\n')
+        if do_print: print(f'i=[{i}] prob_avg : {probs[i]}\n')
 
         # Compute accuracy on new targets
         if (which_correct[i // 2] == 0 and i % 2 == 0) or (
@@ -226,12 +235,12 @@ def test_batch_prediction(
             for j in range(cur_len):
                 cur_tok = (a_tok if i % 2 == 0 else b_tok)[j]
                 _tok = logits[i, prefix_lens[i // 2] + j - 1, :].argmax().item()
-                print(f'[{j}] predict : {tok.decode(_tok)}, target : {tok.decode(cur_tok)}')
+                if do_print: print(f'[{j}] predict : {tok.decode(_tok)}, target : {tok.decode(cur_tok)}')
 
                 if cur_tok != _tok:
                     correct = False
                     break
-            print()
+            if do_print: print()
 
             targets_correct.append(correct)
 

@@ -427,6 +427,10 @@ if __name__ == "__main__":
     # run2(file_names, out_path)
     # run4(file_names, out_path)
 
+    file_names = ['multi_counterfact_1000{}.json',
+                  'multi_counterfact_10000{}.json']
+    run2(file_names, out_path)
+
     in_path = f'{data_dir}/preprocessing/sequential_identical_subjects/each'
     # run3(in_path)
 
@@ -442,5 +446,5 @@ if __name__ == "__main__":
                   'mcf_multiple_identical_subjects_1000_1:9{}.json',
                   'mcf_multiple_identical_subjects_1000_0:10{}.json']
     out_path = f'{data_dir}/preprocessing/multiple_identical_subjects'
-    run2(file_names, out_path)
+    # run2(file_names, out_path)
 

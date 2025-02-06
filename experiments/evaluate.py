@@ -54,6 +54,24 @@ def main(
     # Set algorithm-specific variables
     params_class, apply_algo = ALG_DICT[alg_name]
 
+    def _print_init():
+        print(f'#################### evaluate._print_init() ####################')
+        print(f'\talg_name : {alg_name}')
+        print(f'\tparams_class : {params_class}')
+        print(f'\tapply_algo : {apply_algo}')
+        print(f'\tmodel_name : {model_name}')
+        print(f'\thparams_fname : {hparams_fname}')
+        print(f'\tds_name : {ds_name}')
+        print(f'\tdataset_size_limit : {dataset_size_limit}')
+        print(f'\tcontinue_from_run : {continue_from_run}')
+        print(f'\tskip_generation_tests : {skip_generation_tests}')
+        print(f'\tgeneration_test_interval : {generation_test_interval}')
+        print(f'\tconserve_memory : {conserve_memory}')
+        print(f'\tdir_name : {dir_name}')
+        print(f'\tnum_edits : {num_edits}')
+        print(f'\tuse_cache : {use_cache}\n\n')
+    _print_init()
+
     # Determine run directory
     # Create new dir if not continuing from prev run OR prev run doesn't exist
     if (
@@ -190,10 +208,11 @@ def main(
             with open(out_file, "w") as f:
                 json.dump(metrics, f, indent=1)
 
+        # 실험을 위해서 가중치 복원 부분 생략
         # Restore original weights
-        with torch.no_grad():
-            for k, v in weights_copy.items():
-                nethook.get_parameter(model, k)[...] = v.to("cuda")
+        # with torch.no_grad():
+        #     for k, v in weights_copy.items():
+        #         nethook.get_parameter(model, k)[...] = v.to("cuda")
 
         print("Evaluation took", time() - start)
 
@@ -296,6 +315,23 @@ if __name__ == "__main__":
     parser.set_defaults(skip_generation_tests=False, conserve_memory=False)
     args = parser.parse_args()
 
+    
+    '''
+        alg_name : MEMIT
+	    params_class : <class 'memit.memit_hparams.MEMITHyperParams'>
+	    apply_algo : <function apply_memit_to_model at 0x7f3af82e0f70>
+	    model_name : gpt2-xl
+	    hparams_fname : gpt2-xl.json
+	    ds_name : mcf
+	    dataset_size_limit : None
+	    continue_from_run : None
+	    skip_generation_tests : False
+	    generation_test_interval : 1
+	    conserve_memory : False
+	    dir_name : MEMIT
+	    num_edits : 35
+	    use_cache : False
+    '''
     main(
         args.alg_name,
         args.model_name,
