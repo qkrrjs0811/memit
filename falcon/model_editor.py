@@ -423,7 +423,7 @@ class ModelEditor:
         print(f'\tdo_restore : {do_restore}, do_restore_test : {do_restore_test}, do_print : {do_print}\n')
 
         # 누적 실험을 위한 리스트
-        record_chunks_ext, case_ids_ext = [], []
+        case_ids_ext, record_chunks_list = [], []
 
         for record_chunks in chunks(self._ds, self._num_edits):
             # 기존에 작업한 데이터인지 확인
@@ -468,20 +468,25 @@ class ModelEditor:
                 self._predict_all(edited_model, self._tok, record_chunks, do_print=do_print, print_prefix='edited')
 
 
+            case_ids_ext.extend(case_ids)
+            record_chunks_list.append(record_chunks)
+
+            out_dir = '/home/nlpshlee/dev_env/git/repos/memit/logs/logs_{}'
+            if len(case_ids_ext) <= 10:
+                out_dir += f'/id_{case_ids_ext}'
+            else:
+                out_dir += f'/id_{case_ids_ext[:10]}...{case_ids_ext[-1]}'
+
+
             # (4) 현재까지의 전체 데이터 테스트
             if do_extend_test:
-                record_chunks_ext.extend(record_chunks)
-                case_ids_ext.extend(case_ids)
-
-                out_dir = '/home/nlpshlee/dev_env/git/repos/memit/logs/logs_{}'
-                if len(case_ids_ext) <= 10:
-                    out_dir += f'/id_{case_ids_ext}'
-                else:
-                    out_dir += f'/id_{case_ids_ext[:10]}...{case_ids_ext[-1]}'
-
                 print('\n\n######################################## extend ########################################\n')
-                # self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='extend', out_dir=out_dir)
-                self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='extend')
+                if len(self._performances[0]) == 1 and len(self._performances[1]) == 0:
+                    print(f'\n#################### 1st extend step skip ####################\n')
+                    self._performances[1].append(self._performances[0][0])
+                else:
+                    for _record_chunks in record_chunks_list:
+                        self._predict_all(edited_model, self._tok, _record_chunks, do_print=do_print, print_prefix='extend')
             
             # (5) 편집 이전의 weight로 복원 및 테스트
             if do_restore:
@@ -494,7 +499,9 @@ class ModelEditor:
                         self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='restored')
                     # else:
                     #     print('\n\n######################################## restored_extend ########################################\n')
-                    #     self._predict_all(self._model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='restored_extend', out_dir=out_dir)
+                    #     for _record_chunks in record_chunks_list:
+                    #         self._predict_all(self._model, self._tok, _record_chunks, do_print=do_print, print_prefix='restored_extend', out_dir=out_dir)
+
 
             self._cnt += len(record_chunks)
             print(f'[{self._cnt}] edit finish\n\n')
@@ -509,8 +516,28 @@ class ModelEditor:
         print(f'\n# ModelEditor.print_performance()')
         print(f'\tedited : {self._performances[0]}')
         print(f'\tedited (avg) : {np.mean(self._performances[0])}')
-        print(f'\textend : {self._performances[1]}')
-        print(f'\textend (avg) : {np.mean(self._performances[1])}')
+        extend_groups, extend_avgs = self._performance_extend_batch_group(self._performances[1])
+        print(f'\textend : {extend_groups}')
+        print(f'\textend (avg) : {extend_avgs}')
         print(f'\trestored : {self._performances[2]}')
         print(f'\trestored (avg) : {np.mean(self._performances[2])}\n')
+    
+
+    def _performance_extend_batch_group(self, data):
+        idx, group_size = 0, 1
+        groups, avgs = [], []
+
+        while idx < len(data):
+            group = data[idx : idx+group_size]
+
+            if len(group) > 0:
+                groups.append(group)
+            
+            idx += group_size
+            group_size += 1
+        
+        for group in groups:
+            avgs.append(np.mean(group))
+
+        return groups, [avgs, np.mean(avgs)]
 
