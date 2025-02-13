@@ -156,9 +156,16 @@ def run_241206_sequential():
         model_editor_subject = get_model_editor(num_edits)
         model_editor_relation = get_model_editor(num_edits, '_test', {'layers': [26, 27, 28, 29, 30]})
 
+        model_editor_subject._do_eval_org_model = False
+        model_editor_subject._do_eval_new_model = False
+        model_editor_relation._do_eval_org_model = False
+        model_editor_relation._do_eval_new_model = False
+
         datas_batchs, datas_extend = [], []
         
         for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_241206_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
+
             in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
             datas_subject = load_datas(in_file_path)
 
@@ -262,11 +269,65 @@ def run_250117_multiple_evaluate_matrix():
         model_editor_relation.edit_ext_datas(datas_relation, False, True, False, False, False, False)
 
 
+def run_250213_sequential():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
+
+
+    for identical_num, num_edits in zip([4, 3, 2], [5, 35, 500]):
+        in_path = f'{data_dir}/identical{identical_num}'
+
+        model_editor_subject_only = get_model_editor(num_edits)
+        model_editor_subject_relation = get_model_editor(num_edits)
+
+        model_editor_subject_only._do_eval_org_model = False
+        model_editor_subject_only._do_eval_new_model = False
+        model_editor_subject_relation._do_eval_org_model = False
+        model_editor_subject_relation._do_eval_new_model = False
+
+        datas_batchs, datas_extend = [], []
+        
+        for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_250213_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
+
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
+            datas_subject = load_datas(in_file_path)
+
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}_sr_swap_post.json'
+            datas_relation = load_datas(in_file_path)
+
+            # 기존 방법 적용
+            model_editor_subject_only.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+
+            # 제안 방법 적용
+            model_editor_subject_relation.set_params_external({'layers': [13, 14, 15, 16, 17]})
+            model_editor_subject_relation.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+            model_editor_subject_relation.set_params_external({'layers': [26, 27, 28, 29, 30]})
+            model_editor_subject_relation.edit_ext_datas(datas_relation, False, True, False, False, False, False)
+
+            # 제안 방법에 대한 배치 단위 성능 측정
+            datas_batchs.append(datas_subject)
+            datas_extend.extend(datas_subject)
+
+            # if batch_idx > 1:
+            print(f'\n### datas_extend size : {len(datas_extend)}\n')
+            for i, datas_batch in enumerate(datas_batchs):
+                print(f'[{i}] batch size : {len(datas_batch)}')
+                if batch_idx == identical_num:
+                    model_editor_subject_only._do_eval_org_model = True
+                    model_editor_subject_relation._do_eval_org_model = True
+
+                model_editor_subject_only.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+                model_editor_subject_relation.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+        # break
+
+
 if __name__ == "__main__":
     # run()
     # run_241201()
     # run_241204_multiple()
     # run_241206_sequential()
     # run_241219_multiple()
-    run_250117_multiple_evaluate_matrix()
+    # run_250117_multiple_evaluate_matrix()
+    run_250213_sequential()
 

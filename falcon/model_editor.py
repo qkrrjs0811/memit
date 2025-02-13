@@ -39,10 +39,6 @@ DS_DICT = {
 }
 
 
-class FLAGS :
-    DO_EVAL_NEW_MODEL = True
-
-
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -114,6 +110,9 @@ class ModelEditor:
         self._cnt = 0
         self._performances = [[], [], []]
 
+        self._do_eval_org_model = False
+        self._do_eval_new_model = True
+
 
     def _print_init(self):
         print(f'#################### ModelEditor._print_init() ####################')
@@ -173,9 +172,13 @@ class ModelEditor:
         print(f'# ModelEditor._set_params() [Executing {self._alg_name} with parameters]\n\n{self._hparams}\n')
 
         # 외부에서 파라미터를 변경해야되는 경우
+        self.set_params_external(hparams_mod)
+
+
+    def set_params_external(self, hparams_mod: dict=None):
         if hparams_mod is not None:
             self._hparams.update_from_dict(hparams_mod)
-            print(f'# ModelEditor._set_params() [Updated parameters]\n\n{self._hparams}\n')
+            print(f'# ModelEditor.set_params_external() [Updated parameters]\n\n{self._hparams}\n')
 
 
     def _init_model(self):
@@ -360,6 +363,8 @@ class ModelEditor:
     
 
     def _evaluate(self, model, tok, records, exec_time=-1):
+        print(f'\n# ModelEditor._evaluate() run_dir : {self._run_dir}\n')
+
         case_ids = [record['case_id'] for record in records]
         gen_test_vars = [self._snips, self._vec]
 
@@ -442,6 +447,10 @@ class ModelEditor:
             if do_org_test:
                 self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='org')
 
+                # 기존 모델에 대해서 전체 성능 평가
+                if self._do_eval_org_model:
+                    self._evaluate(self._model, self._tok, record_chunks)
+
             # (2) 모델 편집
             '''
                 - ROME : rome_main.apply_rome_to_model()
@@ -458,8 +467,8 @@ class ModelEditor:
                 exec_time = time.time() - start
                 print(f'# ModelEditor.edit() Execution took : {exec_time}\n\n')
 
-                # 변경된 모델에 대해서 성능 평가
-                if FLAGS.DO_EVAL_NEW_MODEL:
+                # 변경된 모델에 대해서 전체 성능 평가
+                if self._do_eval_new_model:
                     # self._evaluate(edited_model, self._tok, record_chunks, exec_time)
                     self._evaluate(edited_model, self._tok, record_chunks)
 
