@@ -322,6 +322,49 @@ def run_250213_sequential():
         # break
 
 
+def run_250214_multiple_only_relation():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
+
+    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
+    num_edits = 1000
+    hparams_mod = {'layers': [26, 27, 28, 29, 30]}
+    
+    for i in tqdm(range(10, -1, -1)):
+        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), "_sr_swap_post")
+        # print(f'in_file_path : {in_file_path}')
+
+        # relation으로만 편집 수행
+        datas_relation = load_datas(in_file_path)
+        model_editor_relation = get_model_editor(num_edits, '_test', hparams_mod)
+        model_editor_relation._do_eval_org_model = False
+        model_editor_relation._do_eval_new_model = False
+        model_editor_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
+
+
+def run_250214_multiple_relation_last_tok():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing'
+
+    for identical_num, num_edits in tqdm(zip([4, 3, 2], [20, 105, 1000])):
+        if identical_num == 2:
+            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_ext_n_{num_edits}' + '{}.json'
+        else:
+            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_all_{num_edits}' + '{}.json'
+        
+        datas_subject = load_datas(in_file_path.format(''))
+        datas_relation = load_datas(in_file_path.format('_sr_swap'))
+
+        model_editor_subject_relation = get_model_editor(num_edits)
+        model_editor_subject_relation._do_eval_org_model = False
+        model_editor_subject_relation._do_eval_new_model = False
+
+        model_editor_subject_relation.set_params_external({'layers': [13, 14, 15, 16, 17]})
+        model_editor_subject_relation.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+        model_editor_subject_relation.set_params_external({'layers': [26, 27, 28, 29, 30]})
+        model_editor_subject_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
+
+
 if __name__ == "__main__":
     # run()
     # run_241201()
@@ -329,5 +372,7 @@ if __name__ == "__main__":
     # run_241206_sequential()
     # run_241219_multiple()
     # run_250117_multiple_evaluate_matrix()
-    run_250213_sequential()
+    # run_250213_sequential()
+    # run_250214_multiple_only_relation()
+    run_250214_multiple_relation_last_tok()
 
