@@ -156,9 +156,16 @@ def run_241206_sequential():
         model_editor_subject = get_model_editor(num_edits)
         model_editor_relation = get_model_editor(num_edits, '_test', {'layers': [26, 27, 28, 29, 30]})
 
+        model_editor_subject._do_eval_org_model = False
+        model_editor_subject._do_eval_new_model = False
+        model_editor_relation._do_eval_org_model = False
+        model_editor_relation._do_eval_new_model = False
+
         datas_batchs, datas_extend = [], []
         
         for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_241206_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
+
             in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
             datas_subject = load_datas(in_file_path)
 
@@ -220,26 +227,29 @@ def run_250117_multiple_evaluate_matrix():
     home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
+    # [02_multiple_two_step] : 000 ~ 007
     # file_names = ['multi_counterfact_identical1_ext_rn_1000',
     #               'multi_counterfact_identical2_ext_n_1000',
     #               'multi_counterfact_identical3_all_105',
     #               'multi_counterfact_identical4_all_20']
-    
-    # 000~007
-    # file_names = ['multi_counterfact_identical4_all_20',
-    #               'multi_counterfact_identical3_all_105',
-    #               'multi_counterfact_identical2_ext_n_1000',
-    #               'multi_counterfact_identical1_ext_rn_1000']
 
-    file_names = ['multi_counterfact_10000',
-                  'multi_counterfact_1000']
+    # [03_multiple_all_two_step] : 000 ~ 003
+    # file_names = ['multi_counterfact_20877',
+    #               'multi_counterfact_20877']
+    # num_edits_list = [10000, 1000]
+
+    # [04_multiple_identical1,2] : 000 ~ 003
+    file_names = ['multi_counterfact_identical1_all_19366',
+                  'multi_counterfact_identical2_all_1386']
+    num_edits_list = [10000, 1386]
 
     
     hparams_mod = {'layers': [26, 27, 28, 29, 30]}
 
-    for file_name in tqdm(file_names):
-        num_edits = int(file_name.split('_')[-1])
+    for file_name, num_edits in tqdm(zip(file_names, num_edits_list)):
+        # num_edits = int(file_name.split('_')[-1])
         # print(f'file_name : {file_name}, num_edits : {num_edits}')
+        # continue
 
         in_file_path = f'{data_dir}/{file_name}.json'
         datas_subject = load_datas(in_file_path)
@@ -259,11 +269,110 @@ def run_250117_multiple_evaluate_matrix():
         model_editor_relation.edit_ext_datas(datas_relation, False, True, False, False, False, False)
 
 
+def run_250213_sequential():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
+
+
+    for identical_num, num_edits in zip([4, 3, 2], [5, 35, 500]):
+        in_path = f'{data_dir}/identical{identical_num}'
+
+        model_editor_subject_only = get_model_editor(num_edits)
+        model_editor_subject_relation = get_model_editor(num_edits)
+
+        model_editor_subject_only._do_eval_org_model = False
+        model_editor_subject_only._do_eval_new_model = False
+        model_editor_subject_relation._do_eval_org_model = False
+        model_editor_subject_relation._do_eval_new_model = False
+
+        datas_batchs, datas_extend = [], []
+        
+        for batch_idx in tqdm(range(1, identical_num+1)):
+            print(f'### falcon.tester.run_250213_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
+
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
+            datas_subject = load_datas(in_file_path)
+
+            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}_sr_swap_post.json'
+            datas_relation = load_datas(in_file_path)
+
+            # 기존 방법 적용
+            model_editor_subject_only.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+
+            # 제안 방법 적용
+            model_editor_subject_relation.set_params_external({'layers': [13, 14, 15, 16, 17]})
+            model_editor_subject_relation.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+            model_editor_subject_relation.set_params_external({'layers': [26, 27, 28, 29, 30]})
+            model_editor_subject_relation.edit_ext_datas(datas_relation, False, True, False, False, False, False)
+
+            # 제안 방법에 대한 배치 단위 성능 측정
+            datas_batchs.append(datas_subject)
+            datas_extend.extend(datas_subject)
+
+            # if batch_idx > 1:
+            print(f'\n### datas_extend size : {len(datas_extend)}\n')
+            for i, datas_batch in enumerate(datas_batchs):
+                print(f'[{i}] batch size : {len(datas_batch)}')
+                if batch_idx == identical_num:
+                    model_editor_subject_only._do_eval_org_model = True
+                    model_editor_subject_relation._do_eval_org_model = True
+
+                model_editor_subject_only.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+                model_editor_subject_relation.edit_ext_datas(datas_batch, True, False, False, False, False, False)
+        # break
+
+
+def run_250214_multiple_only_relation():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
+
+    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
+    num_edits = 1000
+    hparams_mod = {'layers': [26, 27, 28, 29, 30]}
+    
+    for i in tqdm(range(10, -1, -1)):
+        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), "_sr_swap_post")
+        # print(f'in_file_path : {in_file_path}')
+
+        # relation으로만 편집 수행
+        datas_relation = load_datas(in_file_path)
+        model_editor_relation = get_model_editor(num_edits, '_test', hparams_mod)
+        model_editor_relation._do_eval_org_model = False
+        model_editor_relation._do_eval_new_model = False
+        model_editor_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
+
+
+def run_250214_multiple_relation_last_tok():
+    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing'
+
+    for identical_num, num_edits in tqdm(zip([4, 3, 2], [20, 105, 1000])):
+        if identical_num == 2:
+            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_ext_n_{num_edits}' + '{}.json'
+        else:
+            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_all_{num_edits}' + '{}.json'
+        
+        datas_subject = load_datas(in_file_path.format(''))
+        datas_relation = load_datas(in_file_path.format('_sr_swap'))
+
+        model_editor_subject_relation = get_model_editor(num_edits)
+        model_editor_subject_relation._do_eval_org_model = False
+        model_editor_subject_relation._do_eval_new_model = False
+
+        model_editor_subject_relation.set_params_external({'layers': [13, 14, 15, 16, 17]})
+        model_editor_subject_relation.edit_ext_datas(datas_subject, False, True, False, False, False, False)
+        model_editor_subject_relation.set_params_external({'layers': [26, 27, 28, 29, 30]})
+        model_editor_subject_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
+
+
 if __name__ == "__main__":
     # run()
     # run_241201()
     # run_241204_multiple()
     # run_241206_sequential()
     # run_241219_multiple()
-    run_250117_multiple_evaluate_matrix()
+    # run_250117_multiple_evaluate_matrix()
+    # run_250213_sequential()
+    # run_250214_multiple_only_relation()
+    run_250214_multiple_relation_last_tok()
 

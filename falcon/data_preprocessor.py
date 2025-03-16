@@ -428,7 +428,9 @@ if __name__ == "__main__":
     # run4(file_names, out_path)
 
     file_names = ['multi_counterfact_1000{}.json',
-                  'multi_counterfact_10000{}.json']
+                  'multi_counterfact_10000{}.json',
+                  'multi_counterfact_identical1_all_19366{}.json',
+                  'multi_counterfact_identical2_all_1386{}.json']
     run2(file_names, out_path)
 
     in_path = f'{data_dir}/preprocessing/sequential_identical_subjects/each'

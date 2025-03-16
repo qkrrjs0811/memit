@@ -39,10 +39,6 @@ DS_DICT = {
 }
 
 
-class FLAGS :
-    DO_EVAL_NEW_MODEL = True
-
-
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -114,6 +110,9 @@ class ModelEditor:
         self._cnt = 0
         self._performances = [[], [], []]
 
+        self._do_eval_org_model = False
+        self._do_eval_new_model = True
+
 
     def _print_init(self):
         print(f'#################### ModelEditor._print_init() ####################')
@@ -173,9 +172,13 @@ class ModelEditor:
         print(f'# ModelEditor._set_params() [Executing {self._alg_name} with parameters]\n\n{self._hparams}\n')
 
         # 외부에서 파라미터를 변경해야되는 경우
+        self.set_params_external(hparams_mod)
+
+
+    def set_params_external(self, hparams_mod: dict=None):
         if hparams_mod is not None:
             self._hparams.update_from_dict(hparams_mod)
-            print(f'# ModelEditor._set_params() [Updated parameters]\n\n{self._hparams}\n')
+            print(f'# ModelEditor.set_params_external() [Updated parameters]\n\n{self._hparams}\n')
 
 
     def _init_model(self):
@@ -360,6 +363,8 @@ class ModelEditor:
     
 
     def _evaluate(self, model, tok, records, exec_time=-1):
+        print(f'\n# ModelEditor._evaluate() run_dir : {self._run_dir}\n')
+
         case_ids = [record['case_id'] for record in records]
         gen_test_vars = [self._snips, self._vec]
 
@@ -423,7 +428,7 @@ class ModelEditor:
         print(f'\tdo_restore : {do_restore}, do_restore_test : {do_restore_test}, do_print : {do_print}\n')
 
         # 누적 실험을 위한 리스트
-        record_chunks_ext, case_ids_ext = [], []
+        case_ids_ext, record_chunks_list = [], []
 
         for record_chunks in chunks(self._ds, self._num_edits):
             # 기존에 작업한 데이터인지 확인
@@ -442,6 +447,10 @@ class ModelEditor:
             if do_org_test:
                 self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='org')
 
+                # 기존 모델에 대해서 전체 성능 평가
+                if self._do_eval_org_model:
+                    self._evaluate(self._model, self._tok, record_chunks)
+
             # (2) 모델 편집
             '''
                 - ROME : rome_main.apply_rome_to_model()
@@ -458,8 +467,8 @@ class ModelEditor:
                 exec_time = time.time() - start
                 print(f'# ModelEditor.edit() Execution took : {exec_time}\n\n')
 
-                # 변경된 모델에 대해서 성능 평가
-                if FLAGS.DO_EVAL_NEW_MODEL:
+                # 변경된 모델에 대해서 전체 성능 평가
+                if self._do_eval_new_model:
                     # self._evaluate(edited_model, self._tok, record_chunks, exec_time)
                     self._evaluate(edited_model, self._tok, record_chunks)
 
@@ -468,20 +477,25 @@ class ModelEditor:
                 self._predict_all(edited_model, self._tok, record_chunks, do_print=do_print, print_prefix='edited')
 
 
+            case_ids_ext.extend(case_ids)
+            record_chunks_list.append(record_chunks)
+
+            out_dir = '/home/nlpshlee/dev_env/git/repos/memit/logs/logs_{}'
+            if len(case_ids_ext) <= 10:
+                out_dir += f'/id_{case_ids_ext}'
+            else:
+                out_dir += f'/id_{case_ids_ext[:10]}...{case_ids_ext[-1]}'
+
+
             # (4) 현재까지의 전체 데이터 테스트
             if do_extend_test:
-                record_chunks_ext.extend(record_chunks)
-                case_ids_ext.extend(case_ids)
-
-                out_dir = '/home/nlpshlee/dev_env/git/repos/memit/logs/logs_{}'
-                if len(case_ids_ext) <= 10:
-                    out_dir += f'/id_{case_ids_ext}'
-                else:
-                    out_dir += f'/id_{case_ids_ext[:10]}...{case_ids_ext[-1]}'
-
                 print('\n\n######################################## extend ########################################\n')
-                # self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='extend', out_dir=out_dir)
-                self._predict_all(edited_model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='extend')
+                if len(self._performances[0]) == 1 and len(self._performances[1]) == 0:
+                    print(f'\n#################### 1st extend step skip ####################\n')
+                    self._performances[1].append(self._performances[0][0])
+                else:
+                    for _record_chunks in record_chunks_list:
+                        self._predict_all(edited_model, self._tok, _record_chunks, do_print=do_print, print_prefix='extend')
             
             # (5) 편집 이전의 weight로 복원 및 테스트
             if do_restore:
@@ -494,7 +508,9 @@ class ModelEditor:
                         self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='restored')
                     # else:
                     #     print('\n\n######################################## restored_extend ########################################\n')
-                    #     self._predict_all(self._model, self._tok, record_chunks_ext, do_print=do_print, print_prefix='restored_extend', out_dir=out_dir)
+                    #     for _record_chunks in record_chunks_list:
+                    #         self._predict_all(self._model, self._tok, _record_chunks, do_print=do_print, print_prefix='restored_extend', out_dir=out_dir)
+
 
             self._cnt += len(record_chunks)
             print(f'[{self._cnt}] edit finish\n\n')
@@ -509,8 +525,28 @@ class ModelEditor:
         print(f'\n# ModelEditor.print_performance()')
         print(f'\tedited : {self._performances[0]}')
         print(f'\tedited (avg) : {np.mean(self._performances[0])}')
-        print(f'\textend : {self._performances[1]}')
-        print(f'\textend (avg) : {np.mean(self._performances[1])}')
+        extend_groups, extend_avgs = self._performance_extend_batch_group(self._performances[1])
+        print(f'\textend : {extend_groups}')
+        print(f'\textend (avg) : {extend_avgs}')
         print(f'\trestored : {self._performances[2]}')
         print(f'\trestored (avg) : {np.mean(self._performances[2])}\n')
+    
+
+    def _performance_extend_batch_group(self, data):
+        idx, group_size = 0, 1
+        groups, avgs = [], []
+
+        while idx < len(data):
+            group = data[idx : idx+group_size]
+
+            if len(group) > 0:
+                groups.append(group)
+            
+            idx += group_size
+            group_size += 1
+        
+        for group in groups:
+            avgs.append(np.mean(group))
+
+        return groups, [avgs, np.mean(avgs)]
 

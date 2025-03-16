@@ -254,6 +254,16 @@ def add_dict_freq(in_dict: dict, key, value=1):
         in_dict[key] = value
 
 
+def write_dict_freq(out_dict: dict, out_file_path: str, encoding=ENCODING, delim=DELIM_KEY) :
+    file = open_file(out_file_path, encoding, 'w')
+
+    items = out_dict.items()
+    for item in items :
+        file.write(f"{item[0]}{delim}{item[1]}\n")
+    
+    file.close()
+
+
 def trim(input_list: list, rm_empty_flag: bool):
     if not rm_empty_flag:
         for i in range(len(input_list)):
