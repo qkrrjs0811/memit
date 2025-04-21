@@ -306,7 +306,7 @@ def make_datas_sr_both(datas, out_path: str):
 
         ''' 변경된 데이터 생성 '''
         data_sr_both = deepcopy(data)
-        data_sr_both['requested_rewrite']['rel_prompt'] = prompt_sr_swap_post
+        data_sr_both['requested_rewrite']['prompt_relation'] = prompt_sr_swap_post
         data_sr_both['requested_rewrite']['relation'] = relation_post
 
         datas_sr_both.append(data_sr_both)
@@ -420,18 +420,21 @@ if __name__ == "__main__":
     # datas = load_datas(in_file_path)
     # run1(datas, out_path)
 
-    file_names = ['multi_counterfact_identical1_ext_rn_1000{}.json',
+    file_names = ['multi_counterfact_20877{}.json',
+                  'multi_counterfact_identical1_all_19366{}.json',
+                  'multi_counterfact_identical1_ext_rn_1000{}.json',
+                  'multi_counterfact_identical2_all_1386{}.json',
                   'multi_counterfact_identical2_ext_n_1000{}.json',
                   'multi_counterfact_identical3_all_105{}.json',
                   'multi_counterfact_identical4_all_20{}.json']
     # run2(file_names, out_path)
-    # run4(file_names, out_path)
+    run4(file_names, out_path)
 
     file_names = ['multi_counterfact_1000{}.json',
                   'multi_counterfact_10000{}.json',
                   'multi_counterfact_identical1_all_19366{}.json',
                   'multi_counterfact_identical2_all_1386{}.json']
-    run2(file_names, out_path)
+    # run2(file_names, out_path)
 
     in_path = f'{data_dir}/preprocessing/sequential_identical_subjects/each'
     # run3(in_path)
