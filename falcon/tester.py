@@ -46,7 +46,7 @@ def get_model_editor(num_edits=100, hparams_fname_suffix='', hparams_mod=None):
 
 
 def run():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
     identical_group = 1
@@ -80,7 +80,7 @@ def run():
 
 
 def run_241201():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
     identical_group = 2
@@ -107,7 +107,7 @@ def run_241201():
 
 
 def run_241204_multiple():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
     identical_group = 2
@@ -146,7 +146,7 @@ def run_241204_multiple():
 
 
 def run_241206_sequential():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
 
 
@@ -197,7 +197,7 @@ def run_241206_sequential():
 
 
 def run_241219_multiple():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
 
     file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
@@ -224,7 +224,7 @@ def run_241219_multiple():
 
 
 def run_250117_multiple_evaluate_matrix():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
     # [02_multiple_two_step] : 000 ~ 007
@@ -270,7 +270,7 @@ def run_250117_multiple_evaluate_matrix():
 
 
 def run_250213_sequential():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
 
 
@@ -323,7 +323,7 @@ def run_250213_sequential():
 
 
 def run_250214_multiple_only_relation():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
 
     file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
@@ -343,7 +343,7 @@ def run_250214_multiple_only_relation():
 
 
 def run_250214_multiple_relation_last_tok():
-    home_dir = '/home/nlpshlee/dev_env/git/repos/memit'
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
     for identical_num, num_edits in tqdm(zip([4, 3, 2], [20, 105, 1000])):
@@ -365,6 +365,35 @@ def run_250214_multiple_relation_last_tok():
         model_editor_subject_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
 
 
+def run_250421_merging_test():
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing'
+
+
+    for identical_num, num_edits in zip([3], [35]):
+        model_editor_org = get_model_editor(num_edits)
+        model_editor_merging = get_model_editor(num_edits)
+
+        model_editor_org._do_eval_org_model = False
+        model_editor_org._do_eval_new_model = False
+        model_editor_merging._do_eval_org_model = False
+        model_editor_merging._do_eval_new_model = False
+
+        size = identical_num * num_edits
+        if identical_num == 2:
+            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_ext_n_{size}.json'
+        else:
+            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_all_{size}.json'
+        datas_subject = load_datas(in_file_path)
+
+        # 기존 방법 적용
+        model_editor_org.edit_ext_datas(datas_subject, False, True, False, True, False, False)
+
+        # 제안 방법 적용
+        model_editor_merging.edit_ext_datas(datas_subject, False, True, False, True, True, False, do_merging=True)
+    
+
+
 if __name__ == "__main__":
     # run()
     # run_241201()
@@ -374,5 +403,6 @@ if __name__ == "__main__":
     # run_250117_multiple_evaluate_matrix()
     # run_250213_sequential()
     # run_250214_multiple_only_relation()
-    run_250214_multiple_relation_last_tok()
+    # run_250214_multiple_relation_last_tok()
+    run_250421_merging_test()
 

@@ -411,13 +411,13 @@ class ModelEditor:
             print(f'# ModelEditor.restore_weights() weights restored\n')
 
 
-    def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True):
+    def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_merging=False):
         self._load_data()
         self._ds = datas
-        self.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print)
+        self.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print, do_merging)
 
 
-    def edit(self, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True):
+    def edit(self, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_merging=False):
         if self._num_edits > 1:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
@@ -426,6 +426,8 @@ class ModelEditor:
         print(f'\n# ModelEditor.edit() args')
         print(f'\tdo_org_test : {do_org_test}, do_edit : {do_edit}, do_edit_test : {do_edit_test}, do_extend_test : {do_extend_test}')
         print(f'\tdo_restore : {do_restore}, do_restore_test : {do_restore_test}, do_print : {do_print}\n')
+        print(f'\tdo_merging : {do_merging}\n')
+
 
         # 누적 실험을 위한 리스트
         case_ids_ext, record_chunks_list = [], []
@@ -462,7 +464,8 @@ class ModelEditor:
                     self._model, self._tok,
                     [{'case_id': record['case_id'], **record['requested_rewrite']} for record in record_chunks],
                     self._hparams, copy=False, return_orig_weights=True,
-                    **args_conserve_memory, **etc_args
+                    **args_conserve_memory, **etc_args,
+                    do_merging=do_merging
                 )
                 exec_time = time.time() - start
                 print(f'# ModelEditor.edit() Execution took : {exec_time}\n\n')
@@ -480,7 +483,7 @@ class ModelEditor:
             case_ids_ext.extend(case_ids)
             record_chunks_list.append(record_chunks)
 
-            out_dir = '/home/nlpshlee/dev_env/git/repos/memit/logs/logs_{}'
+            out_dir = '/home/albert0811/dev_env/git/repos/memit/logs/logs_{}'
             if len(case_ids_ext) <= 10:
                 out_dir += f'/id_{case_ids_ext}'
             else:

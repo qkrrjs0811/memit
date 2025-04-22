@@ -20,6 +20,8 @@ from .memit_hparams import MEMITHyperParams
 CONTEXT_TEMPLATES_CACHE = None
 COV_CACHE = {}
 
+DELTAS_LIST = []
+MERGED_DELTAS = {}
 
 def apply_memit_to_model(
     model: AutoModelForCausalLM,
@@ -29,6 +31,7 @@ def apply_memit_to_model(
     copy=False,
     return_orig_weights=False,
     cache_template: Optional[str] = None,
+    do_merging = False
 ) -> Tuple[AutoModelForCausalLM, Dict[str, Any]]:
     """
     Returns a model with the desired changes.
@@ -43,21 +46,73 @@ def apply_memit_to_model(
 
     deltas = execute_memit(model, tok, requests, hparams, cache_template=cache_template)
 
-    with torch.no_grad():
-        for w_name, (key_mat, val_mat) in deltas.items():
-            key_mat, val_mat = key_mat.to("cuda"), val_mat.to("cuda")
-            upd_matrix = key_mat @ val_mat.T
-            w = nethook.get_parameter(model, w_name)
-            upd_matrix = upd_matrix_match_shape(upd_matrix, w.shape)
+    if not do_merging:
+        with torch.no_grad():
+            for w_name, (key_mat, val_mat) in deltas.items():
+                key_mat, val_mat = key_mat.to("cuda"), val_mat.to("cuda")
+                upd_matrix = key_mat @ val_mat.T
+                w = nethook.get_parameter(model, w_name)
+                upd_matrix = upd_matrix_match_shape(upd_matrix, w.shape)
 
-            if return_orig_weights and w_name not in weights_copy:
-                weights_copy[w_name] = w.detach().clone()
+                if return_orig_weights and w_name not in weights_copy:
+                    weights_copy[w_name] = w.detach().clone()
 
-            w[...] += upd_matrix.float()
+                w[...] += upd_matrix.float()
+    else:
+        DELTAS_LIST.append(deltas)
 
-    print(f"New weights successfully inserted into {list(deltas.keys())}")
+        if len(DELTAS_LIST) == 1:
+            for w_name, (key_mat, val_mat) in deltas.items():
+                key_mat, val_mat = key_mat.to("cuda"), val_mat.to("cuda")
+                upd_matrix = key_mat @ val_mat.T
+                MERGED_DELTAS[w_name] = upd_matrix
 
+        elif len(DELTAS_LIST) > 1:
+            for w_name, (key_mat, val_mat) in deltas.items():
+                key_mat, val_mat = key_mat.to("cuda"), val_mat.to("cuda")
+                upd_matrix = key_mat @ val_mat.T
+                MERGED_DELTAS[w_name] = torch.zeros_like(upd_matrix)
+
+            for _deltas in DELTAS_LIST:
+                for w_name, (key_mat, val_mat) in deltas.items():
+                    key_mat, val_mat = key_mat.to("cuda"), val_mat.to("cuda")
+                    upd_matrix = key_mat @ val_mat.T
+                    MERGED_DELTAS[w_name] += upd_matrix
+                
+                # # 평균
+                # for w_name in MERGED_DELTAS.keys():
+                #     MERGED_DELTAS[w_name] /= len(DELTAS_LIST)
+
+        with torch.no_grad():
+            for w_name, merged_matrix in MERGED_DELTAS.items():
+                merged_matrix = merged_matrix.to("cuda")
+                w = nethook.get_parameter(model, w_name)
+                upd_matrix = upd_matrix_match_shape(merged_matrix, w.shape)
+
+                if return_orig_weights and w_name not in weights_copy:
+                    weights_copy[w_name] = w.detach().clone()
+
+                w[...] += upd_matrix.float()
+
+    print(f"(do_merging={do_merging}) New weights successfully inserted into {list(deltas.keys())}")
     return model, weights_copy
+
+
+# def _apply_deltas(model, return_orig_weights, weights_copy, deltas):
+#     with torch.no_grad():
+#         for w_name, (key_mat, val_mat) in deltas.items():
+#             key_mat, val_mat = key_mat.to("cuda"), val_mat.to("cuda")
+#             upd_matrix = key_mat @ val_mat.T
+#             w = nethook.get_parameter(model, w_name)
+#             upd_matrix = upd_matrix_match_shape(upd_matrix, w.shape)
+
+#             if return_orig_weights and w_name not in weights_copy:
+#                 weights_copy[w_name] = w.detach().clone()
+
+#             w[...] += upd_matrix.float()
+
+#     print(f"New weights successfully inserted into {list(deltas.keys())}")
+
 
 
 def execute_memit(
