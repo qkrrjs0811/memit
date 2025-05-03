@@ -45,364 +45,278 @@ def get_model_editor(num_edits=100, hparams_fname_suffix='', hparams_mod=None):
     return model_editor
 
 
-def run():
+def edit_and_save():
+    # 현재 목적: 각 batch를 독립적으로 편집하고 모델만 저장 (평가는 이후 별도 실행)
+
     home_dir = '/home/albert0811/dev_env/git/repos/memit'
     data_dir = f'{home_dir}/data/preprocessing'
 
-    identical_group = 1
-    num_edits = 1000
-    file_name = f'identical{identical_group}_ext_rn_{num_edits}'
-    
-    in_file_path = f'{data_dir}/multi_counterfact_{file_name}.json'
-    datas_subject = load_datas(in_file_path)
+    for identical_num, num_edits in zip([2], [250]):
+        # identical_num: 총 batch의 개수
+        # num_edits: 하나의 batch에 들어간 데이터 개수
 
-    in_file_path = f'{data_dir}/multi_counterfact_{file_name}_sr_swap_post.json'
-    datas_relation = load_datas(in_file_path)
+        model_editor = get_model_editor(num_edits)
 
-    model_editor_subject = get_model_editor(num_edits)
-    model_editor_relation = get_model_editor(num_edits, '_test')
-
-    # 기존 subject 데이터로 편집 수행
-    model_editor_subject.edit_ext_datas(datas_subject, True, True, True, False, False, False)
-
-    # relation 편집기에 subject 데이터로 결과 확인
-    model_editor_relation.edit_ext_datas(datas_subject, True, False, False, False, False, False)
-
-    # subject 편집기의 편집된 모델을 relation 편집기로 넘겨주고, 다시 subject 데이터로 결과 확인
-    model_editor_relation._model = model_editor_subject._model
-    model_editor_relation.edit_ext_datas(datas_subject, True, False, False, False, False, False)
-
-    # subject 편집된 웨이트를 가진 relation 편집기에 relation 데이터로 편집
-    model_editor_relation.edit_ext_datas(datas_relation, True, True, True, False, False, False)
-
-    # 그 다음에 다시 subject 데이터로 결과만 확인
-    model_editor_relation.edit_ext_datas(datas_subject, True, False, False, False, False, False)
-
-
-def run_241201():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing'
-
-    identical_group = 2
-    num_edits = 1000
-    file_name = f'identical{identical_group}_ext_n_{num_edits}'
-    
-    in_file_path = f'{data_dir}/multi_counterfact_{file_name}.json'
-    datas_subject = load_datas(in_file_path)
-
-    in_file_path = f'{data_dir}/multi_counterfact_{file_name}_sr_swap_post.json'
-    datas_relation = load_datas(in_file_path)
-
-    model_editor_subject = get_model_editor(num_edits)
-    model_editor_relation = get_model_editor(num_edits, '_test')
-
-    # 기존 subject 데이터로 편집 수행
-    model_editor_subject.edit_ext_datas(datas_subject, True, True, True, False, False, False)
-
-    # subject 편집기의 편집된 모델을 relation 편집기로 넘겨주고, 다시 subject 데이터로 결과 확인
-    model_editor_relation._model = model_editor_subject._model
-
-    # subject 편집된 웨이트를 가진 relation 편집기에 relation 데이터로 편집
-    model_editor_relation.edit_ext_datas(datas_relation, True, True, True, False, False, False)
-
-
-def run_241204_multiple():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing'
-
-    identical_group = 2
-    num_edits = 1000
-    file_name = f'identical{identical_group}_ext_n_{num_edits}'
-    
-    in_file_path = f'{data_dir}/multi_counterfact_{file_name}.json'
-    datas_subject = load_datas(in_file_path)
-
-    in_file_path = f'{data_dir}/multi_counterfact_{file_name}_sr_swap_post.json'
-    datas_relation = load_datas(in_file_path)
-
-    # 기존 subject 데이터로 편집 수행
-    model_editor_subject = get_model_editor(num_edits)
-    model_editor_subject.edit_ext_datas(datas_subject, False, True, False, False, False, False)
-
-    layers_list = [[0, 1, 2, 3, 4], [1, 2, 3, 4, 5], [2, 3, 4, 5, 6], [3, 4, 5, 6, 7], [4, 5, 6, 7, 8],
-                   [5, 6, 7, 8, 9], [6, 7, 8, 9, 10], [7, 8, 9, 10, 11], [8, 9, 10, 11, 12], [9, 10, 11, 12, 13],
-                   [10, 11, 12, 13, 14], [11, 12, 13, 14, 15], [12, 13, 14, 15, 16], [13, 14, 15, 16, 17], [14, 15, 16, 17, 18],
-                   [15, 16, 17, 18, 19], [16, 17, 18, 19, 20], [17, 18, 19, 20, 21], [18, 19, 20, 21, 22], [19, 20, 21, 22, 23],
-                   [20, 21, 22, 23, 24], [21, 22, 23, 24, 25], [22, 23, 24, 25, 26], [23, 24, 25, 26, 27], [24, 25, 26, 27, 28],
-                   [25, 26, 27, 28, 29], [26, 27, 28, 29, 30], [27, 28, 29, 30, 31], [28, 29, 30, 31, 32], [29, 30, 31, 32, 33],
-                   [30, 31, 32, 33, 34], [31, 32, 33, 34, 35], [32, 33, 34, 35, 36], [33, 34, 35, 36, 37], [34, 35, 36, 37, 38],
-                   [35, 36, 37, 38, 39], [36, 37, 38, 39, 40], [37, 38, 39, 40, 41], [38, 39, 40, 41, 42], [39, 40, 41, 42, 43],
-                   [40, 41, 42, 43, 44], [41, 42, 43, 44, 45], [42, 43, 44, 45, 46], [43, 44, 45, 46, 47]]
-
-    for layers in tqdm(layers_list):
-        hparams_mod = {'layers': layers}
-        model_editor_relation = get_model_editor(num_edits, '_test', hparams_mod)
-
-        # subject 편집기의 편집된 모델을 relation 편집기로 복사
-        model_editor_relation._model = deepcopy(model_editor_subject._model)
-
-        # subject 편집된 웨이트를 가진 relation 편집기에 relation 데이터로 편집
-        model_editor_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
-
-
-def run_241206_sequential():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
-
-
-    for identical_num, num_edits in zip([4, 3, 2], [5, 35, 500]):
-        in_path = f'{data_dir}/identical{identical_num}'
-
-        model_editor_subject = get_model_editor(num_edits)
-        model_editor_relation = get_model_editor(num_edits, '_test', {'layers': [26, 27, 28, 29, 30]})
-
-        model_editor_subject._do_eval_org_model = False
-        model_editor_subject._do_eval_new_model = False
-        model_editor_relation._do_eval_org_model = False
-        model_editor_relation._do_eval_new_model = False
-
-        datas_batchs, datas_extend = [], []
+        model_editor._do_eval_org_model = False
+        model_editor._do_eval_new_model = False
         
-        for batch_idx in tqdm(range(1, identical_num+1)):
-            print(f'### falcon.tester.run_241206_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
-
-            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
-            datas_subject = load_datas(in_file_path)
-
-            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}_sr_swap_post.json'
-            datas_relation = load_datas(in_file_path)
-
-            if batch_idx > 1:
-                model_editor_subject._model = deepcopy(model_editor_relation._model)
-
-            model_editor_subject.edit_ext_datas(datas_subject, True, True, True, False, False, False)
-            model_editor_relation._model = deepcopy(model_editor_subject._model)
-            model_editor_relation.edit_ext_datas(datas_relation, True, True, True, False, False, False)
-
-            datas_batchs.append(datas_subject)
-            datas_extend.extend(datas_subject)
-
-            if len(datas_batchs) > 1:
-                print(f'\n### datas_extend size : {len(datas_extend)}\n')
-                for i, datas_batch in enumerate(datas_batchs):
-                    print(f'[{i}] batch size : {len(datas_batch)}')
-                    model_editor_relation.edit_ext_datas(datas_batch, True, False, False, False, False, False)
-
-                # 테스트 용
-                # print(f'\n### datas_extend size : {len(datas_extend)}\n')
-                # model_editor_relation._num_edits = len(datas_extend)
-                # model_editor_relation.edit_ext_datas(datas_extend, True, False, False, False, False, False)
-                # model_editor_relation._num_edits = num_edits
-        # break
-
-
-def run_241219_multiple():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
-
-    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
-    num_edits = 1000
-    hparams_mod = {'layers': [26, 27, 28, 29, 30]}
-    
-    for i in tqdm(range(11)):
-        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), "")
+        # === Normal Edit ===
+        size = identical_num * num_edits
+        in_file_path = f'{data_dir}/normal/mcf_sampled_{size}.json'
         datas_subject = load_datas(in_file_path)
 
-        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), "_sr_swap_post")
-        datas_relation = load_datas(in_file_path)
-
-        # 기존 subject 데이터로 편집 수행
-        model_editor_subject = get_model_editor(num_edits)
-        model_editor_subject.edit_ext_datas(datas_subject, False, True, False, False, False, False)
-
-        # subject 편집기의 편집된 모델을 relation 편집기로 복사
-        model_editor_relation = get_model_editor(num_edits, '_test', hparams_mod)
-        model_editor_relation._model = deepcopy(model_editor_subject._model)
-
-        # subject 편집된 웨이트를 가진 relation 편집기에 relation 데이터로 편집
-        model_editor_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
+        # # === Sequential Edit ===
+        # in_file_path = f'{data_dir}/mcf_sequential_identical{identical_num}_subjects_all.json'
+        # datas_subject = load_datas(in_file_path)
 
 
-def run_250117_multiple_evaluate_matrix():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing'
-
-    # [02_multiple_two_step] : 000 ~ 007
-    # file_names = ['multi_counterfact_identical1_ext_rn_1000',
-    #               'multi_counterfact_identical2_ext_n_1000',
-    #               'multi_counterfact_identical3_all_105',
-    #               'multi_counterfact_identical4_all_20']
-
-    # [03_multiple_all_two_step] : 000 ~ 003
-    # file_names = ['multi_counterfact_20877',
-    #               'multi_counterfact_20877']
-    # num_edits_list = [10000, 1000]
-
-    # [04_multiple_identical1,2] : 000 ~ 003
-    file_names = ['multi_counterfact_identical1_all_19366',
-                  'multi_counterfact_identical2_all_1386']
-    num_edits_list = [10000, 1386]
-
-    
-    hparams_mod = {'layers': [26, 27, 28, 29, 30]}
-
-    for file_name, num_edits in tqdm(zip(file_names, num_edits_list)):
-        # num_edits = int(file_name.split('_')[-1])
-        # print(f'file_name : {file_name}, num_edits : {num_edits}')
-        # continue
-
-        in_file_path = f'{data_dir}/{file_name}.json'
-        datas_subject = load_datas(in_file_path)
-
-        in_file_path = f'{data_dir}/{file_name}_sr_swap_post.json'
-        datas_relation = load_datas(in_file_path)
-
-        # 기존 subject 데이터로 편집 수행
-        model_editor_subject = get_model_editor(num_edits)
-        model_editor_subject.edit_ext_datas(datas_subject, False, True, False, False, False, False)
-
-        # subject 편집기의 편집된 모델을 relation 편집기로 복사
-        model_editor_relation = get_model_editor(num_edits, '_test', hparams_mod)
-        model_editor_relation._model = deepcopy(model_editor_subject._model)
-
-        # subject 편집된 웨이트를 가진 relation 편집기에 relation 데이터로 편집
-        model_editor_relation.edit_ext_datas(datas_relation, False, True, False, False, False, False)
+        # # === Multiple Edit ===
+        # size = identical_num * num_edits
+        # if identical_num == 2:
+        #     in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_ext_n_{size}.json'
+        # else:
+        #     in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_all_{size}.json'
+        # datas_subject = load_datas(in_file_path)
 
 
-def run_250213_sequential():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing/sequential_identical_subjects/each'
-
-
-    for identical_num, num_edits in zip([4, 3, 2], [5, 35, 500]):
-        in_path = f'{data_dir}/identical{identical_num}'
-
-        model_editor_subject_only = get_model_editor(num_edits)
-        model_editor_subject_relation = get_model_editor(num_edits)
-
-        model_editor_subject_only._do_eval_org_model = False
-        model_editor_subject_only._do_eval_new_model = False
-        model_editor_subject_relation._do_eval_org_model = False
-        model_editor_subject_relation._do_eval_new_model = False
-
-        datas_batchs, datas_extend = [], []
+        print("\n[SAVE] 각 batch별로 편집한 모델 독립적으로 저장중...")
+        model_editor.edit_ext_datas(
+            datas_subject,
+            do_org_test=False,
+            do_edit=True,
+            do_edit_test=False,
+            do_extend_test=False,
+            do_restore=True,
+            do_restore_test=False,
+            do_print=True,
+            do_save=True  # 저장 목적
+        )
         
-        for batch_idx in tqdm(range(1, identical_num+1)):
-            print(f'### falcon.tester.run_250213_sequential() identical : {identical_num}, batch_size : {num_edits}, batch_idx : {batch_idx}\n')
-
-            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}.json'
-            datas_subject = load_datas(in_file_path)
-
-            in_file_path = in_path + f'/mcf_sequential_identical{identical_num}_subjects_batch{batch_idx}_sr_swap_post.json'
-            datas_relation = load_datas(in_file_path)
-
-            # 기존 방법 적용
-            model_editor_subject_only.edit_ext_datas(datas_subject, False, True, False, False, False, False)
-
-            # 제안 방법 적용
-            model_editor_subject_relation.set_params_external({'layers': [13, 14, 15, 16, 17]})
-            model_editor_subject_relation.edit_ext_datas(datas_subject, False, True, False, False, False, False)
-            model_editor_subject_relation.set_params_external({'layers': [26, 27, 28, 29, 30]})
-            model_editor_subject_relation.edit_ext_datas(datas_relation, False, True, False, False, False, False)
-
-            # 제안 방법에 대한 배치 단위 성능 측정
-            datas_batchs.append(datas_subject)
-            datas_extend.extend(datas_subject)
-
-            # if batch_idx > 1:
-            print(f'\n### datas_extend size : {len(datas_extend)}\n')
-            for i, datas_batch in enumerate(datas_batchs):
-                print(f'[{i}] batch size : {len(datas_batch)}')
-                if batch_idx == identical_num:
-                    model_editor_subject_only._do_eval_org_model = True
-                    model_editor_subject_relation._do_eval_org_model = True
-
-                model_editor_subject_only.edit_ext_datas(datas_batch, True, False, False, False, False, False)
-                model_editor_subject_relation.edit_ext_datas(datas_batch, True, False, False, False, False, False)
-        # break
-
-
-def run_250214_multiple_only_relation():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing/multiple_identical_subjects'
-
-    file_name = 'mcf_multiple_identical_subjects_1000_{}:{}{}.json'
-    num_edits = 1000
-    hparams_mod = {'layers': [26, 27, 28, 29, 30]}
-    
-    for i in tqdm(range(10, -1, -1)):
-        in_file_path = f'{data_dir}/' + file_name.format(i, (10-i), "_sr_swap_post")
-        # print(f'in_file_path : {in_file_path}')
-
-        # relation으로만 편집 수행
-        datas_relation = load_datas(in_file_path)
-        model_editor_relation = get_model_editor(num_edits, '_test', hparams_mod)
-        model_editor_relation._do_eval_org_model = False
-        model_editor_relation._do_eval_new_model = False
-        model_editor_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
-
-
-def run_250214_multiple_relation_last_tok():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing'
-
-    for identical_num, num_edits in tqdm(zip([4, 3, 2], [20, 105, 1000])):
-        if identical_num == 2:
-            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_ext_n_{num_edits}' + '{}.json'
-        else:
-            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_all_{num_edits}' + '{}.json'
-        
-        datas_subject = load_datas(in_file_path.format(''))
-        datas_relation = load_datas(in_file_path.format('_sr_swap'))
-
-        model_editor_subject_relation = get_model_editor(num_edits)
-        model_editor_subject_relation._do_eval_org_model = False
-        model_editor_subject_relation._do_eval_new_model = False
-
-        model_editor_subject_relation.set_params_external({'layers': [13, 14, 15, 16, 17]})
-        model_editor_subject_relation.edit_ext_datas(datas_subject, False, True, False, False, False, False)
-        model_editor_subject_relation.set_params_external({'layers': [26, 27, 28, 29, 30]})
-        model_editor_subject_relation.edit_ext_datas(datas_relation, False, True, True, False, False, False)
-
-
-def run_250421_merging_test():
-    home_dir = '/home/albert0811/dev_env/git/repos/memit'
-    data_dir = f'{home_dir}/data/preprocessing'
-
-
-    for identical_num, num_edits in zip([3], [35]):
+        # Origin Edit method 평가 수행
         model_editor_org = get_model_editor(num_edits)
-        model_editor_merging = get_model_editor(num_edits)
-
         model_editor_org._do_eval_org_model = False
         model_editor_org._do_eval_new_model = False
-        model_editor_merging._do_eval_org_model = False
-        model_editor_merging._do_eval_new_model = False
 
-        size = identical_num * num_edits
-        if identical_num == 2:
-            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_ext_n_{size}.json'
-        else:
-            in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_all_{size}.json'
-        datas_subject = load_datas(in_file_path)
-
-        # 기존 방법 적용
+        print("\n[Test] 기존 Editing 방법에 대해 평가 수행 중...")
         model_editor_org.edit_ext_datas(datas_subject, False, True, False, True, False, False)
 
-        # 제안 방법 적용
-        model_editor_merging.edit_ext_datas(datas_subject, False, True, False, True, True, False, do_merging=True)
+
+def merge_test(model_name):
+
+    # 경로 설정
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing'
+    merged_model_path = Path(f"{home_dir}/merged/{model_name}")
+
+    # 병합된 모델 디렉토리 존재 여부 확인
+    if not merged_model_path.exists():
+        print(f"[Error] 병합된 모델 디렉토리가 존재하지 않습니다: {merged_model_path}")
+        return
+
+    print(f"[Test] 병합된 모델 로드 중... from {merged_model_path}")
+    model = AutoModelForCausalLM.from_pretrained(
+        str(merged_model_path),
+        torch_dtype=torch.float32
+    ).cuda()
+    tok = AutoTokenizer.from_pretrained(str(merged_model_path))
+    tok.pad_token = tok.eos_token
+
+
+    # === Normal Edit ===
+    # 실험용 데이터 로드 및 평가 실행
+    for identical_num, num_edits in zip([2], [250]):
+        size = identical_num * num_edits
+        in_file_path = f'{data_dir}/normal/mcf_sampled_{size}.json'
+        datas_subject = load_datas(in_file_path)
+
+
+        # Merge한 모델 평가 수행
+        model_editor_merging = get_model_editor(num_edits)
+        model_editor_merging._model = model
+        model_editor_merging._tok = tok
+        model_editor_merging._do_eval_org_model = False
+        model_editor_merging._do_eval_new_model = True
+
+        print("[Test] 병합된 모델에 대해 평가 수행 중...")
+        model_editor_merging.edit_ext_datas(
+            datas_subject,
+            do_org_test=False,
+            do_edit=False,
+            do_edit_test=False,
+            do_extend_test=True,  # 🔹 평가 목적
+            do_restore=False,
+            do_restore_test=False,
+            do_print=False,
+            do_save=False
+        )
     
 
+    # # === Sequential Edit ===
+    # # 실험용 데이터 로드 및 평가 실행
+    # for identical_num, num_edits in zip([4], [5]):
+    #     in_file_path = f'{data_dir}/mcf_sequential_identical{identical_num}_subjects_all.json'
+    #     datas_subject = load_datas(in_file_path)
+
+
+    #     # Merge한 모델 평가 수행
+    #     model_editor_merging = get_model_editor(num_edits)
+    #     model_editor_merging._model = model
+    #     model_editor_merging._tok = tok
+    #     model_editor_merging._do_eval_org_model = False
+    #     model_editor_merging._do_eval_new_model = True
+
+    #     print("[Test] 병합된 모델에 대해 평가 수행 중...")
+    #     model_editor_merging.edit_ext_datas(
+    #         datas_subject,
+    #         do_org_test=False,
+    #         do_edit=False,
+    #         do_edit_test=False,
+    #         do_extend_test=True,  # 🔹 평가 목적
+    #         do_restore=False,
+    #         do_restore_test=False,
+    #         do_print=False,
+    #         do_save=False
+    #     )
+
+
+    # # === Multiple Edit ===
+    # # 실험용 데이터 로드 및 평가 실행
+    # for identical_num, num_edits in zip([2], [500]):
+    #     size = identical_num * num_edits
+    #     if identical_num == 2:
+    #         in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_ext_n_{size}.json'
+    #     else:
+    #         in_file_path = f'{data_dir}/multi_counterfact_identical{identical_num}_all_{size}.json'
+    #     datas_subject = load_datas(in_file_path)
+
+
+    #     # Merged된 모델 평가 수행
+    #     model_editor = get_model_editor(num_edits)
+    #     model_editor._model = model
+    #     model_editor._tok = tok
+    #     model_editor._do_eval_org_model = False
+    #     model_editor._do_eval_new_model = True
+
+    #     print("[Test] 병합된 모델에 대해 평가 수행 중...")
+    #     model_editor.edit_ext_datas(
+    #         datas_subject,
+    #         do_org_test=False,
+    #         do_edit=False,
+    #         do_edit_test=False,
+    #         do_extend_test=True,  # 🔹 평가 목적
+    #         do_restore=False,
+    #         do_restore_test=False,
+    #         do_print=False,
+    #         do_save=False
+    #     )
+
+
+def kcc_edit_and_save():
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing'
+
+
+    # 현재 목적: 각 batch를 독립적으로 편집하고 모델만 저장 (평가는 이후 별도 실행)
+    for identical_num, num_edits in zip([2], [250]):
+        # identical_num: 총 batch의 개수
+        # num_edits: 하나의 batch에 들어간 데이터 개수
+
+        model_editor = get_model_editor(num_edits)
+
+        model_editor._do_eval_org_model = False
+        model_editor._do_eval_new_model = False
+        
+        # === Normal Edit ===
+        size = identical_num * num_edits
+        in_file_path = f'{data_dir}/normal/mcf_sampled_{size}.json'
+        datas_subject = load_datas(in_file_path)
+
+        print("\n[SAVE] 각 batch별로 편집한 모델 독립적으로 저장중...")
+        model_editor.edit_ext_datas(
+            datas_subject,
+            do_org_test=False,
+            do_edit=True,
+            do_edit_test=False,
+            do_extend_test=False,
+            do_restore=True,
+            do_restore_test=False,
+            do_print=False,
+            do_save=True  # 저장 목적
+        )
+        
+    
+    # Origin Edit method 평가 수행
+    for identical_num, num_edits in zip([1], [500]):
+        model_editor_org = get_model_editor(num_edits)
+        model_editor_org._do_eval_org_model = False
+        model_editor_org._do_eval_new_model = False
+
+        size = identical_num * num_edits
+        in_file_path = f'{data_dir}/normal/mcf_sampled_{size}.json'
+        datas_subject = load_datas(in_file_path)
+
+        print("\n[Test] 기존 Editing 방법에 대해 평가 수행 중...")
+        model_editor_org.edit_ext_datas(datas_subject, False, True, True, False, False, False)
+
+
+def kcc_merge_test(model_name):
+    # 경로 설정
+    home_dir = '/home/albert0811/dev_env/git/repos/memit'
+    data_dir = f'{home_dir}/data/preprocessing'
+    merged_model_path = Path(f"{home_dir}/merged/{model_name}")
+
+    # 병합된 모델 디렉토리 존재 여부 확인
+    if not merged_model_path.exists():
+        print(f"[Error] 병합된 모델 디렉토리가 존재하지 않습니다: {merged_model_path}")
+        return
+
+    print(f"[Test] 병합된 모델 로드 중... from {merged_model_path}")
+    model = AutoModelForCausalLM.from_pretrained(
+        str(merged_model_path),
+        torch_dtype=torch.float32
+    ).cuda()
+    tok = AutoTokenizer.from_pretrained(str(merged_model_path))
+    tok.pad_token = tok.eos_token
+
+
+    # === Normal Edit ===
+    # 실험용 데이터 로드 및 평가 실행
+    for identical_num, num_edits in zip([1], [500]):
+        size = identical_num * num_edits
+        in_file_path = f'{data_dir}/normal/mcf_sampled_{size}.json'
+        datas_subject = load_datas(in_file_path)
+
+
+        # Merge한 모델 평가 수행
+        model_editor_merging = get_model_editor(num_edits)
+        model_editor_merging._model = model
+        model_editor_merging._tok = tok
+        model_editor_merging._do_eval_org_model = False
+        model_editor_merging._do_eval_new_model = True
+
+        print("[Test] 병합된 모델에 대해 평가 수행 중...")
+        model_editor_merging.edit_ext_datas(
+            datas_subject,
+            do_org_test=False,
+            do_edit=False,
+            do_edit_test=True,
+            do_extend_test=False,
+            do_restore=False,
+            do_restore_test=False,
+            do_print=True,
+            do_save=False
+        )
+    
 
 if __name__ == "__main__":
-    # run()
-    # run_241201()
-    # run_241204_multiple()
-    # run_241206_sequential()
-    # run_241219_multiple()
-    # run_250117_multiple_evaluate_matrix()
-    # run_250213_sequential()
-    # run_250214_multiple_only_relation()
-    # run_250214_multiple_relation_last_tok()
-    run_250421_merging_test()
+    # 독립적으로 편집 후 저장
+    # edit_and_save()
 
+    # memit 환경에서 실행
+    # merge_test("normal_merged_2_250_della_5")
+    
+    # 독립적으로 편집 후 저장
+    # kcc_edit_and_save()
+
+    # memit 환경에서 실행
+    kcc_merge_test("kcc_merged_2_250_della_30_10")

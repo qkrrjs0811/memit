@@ -15,6 +15,7 @@ from memit import MEMITHyperParams, apply_memit_to_model
 from experiments.py.eval_utils_counterfact import compute_rewrite_quality_counterfact, test_batch_prediction, test_generation
 from experiments.py.eval_utils_zsre import compute_rewrite_quality_zsre
 
+from pathlib import Path
 
 from dsets import (
     AttributeSnippets,
@@ -411,13 +412,13 @@ class ModelEditor:
             print(f'# ModelEditor.restore_weights() weights restored\n')
 
 
-    def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_merging=False):
+    def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_save=False):
         self._load_data()
         self._ds = datas
-        self.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print, do_merging)
+        self.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print, do_save)
 
 
-    def edit(self, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_merging=False):
+    def edit(self, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_save=False):
         if self._num_edits > 1:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
@@ -426,7 +427,7 @@ class ModelEditor:
         print(f'\n# ModelEditor.edit() args')
         print(f'\tdo_org_test : {do_org_test}, do_edit : {do_edit}, do_edit_test : {do_edit_test}, do_extend_test : {do_extend_test}')
         print(f'\tdo_restore : {do_restore}, do_restore_test : {do_restore_test}, do_print : {do_print}\n')
-        print(f'\tdo_merging : {do_merging}\n')
+        print(f'\tdo_save : {do_save}\n')
 
 
         # 누적 실험을 위한 리스트
@@ -465,10 +466,23 @@ class ModelEditor:
                     [{'case_id': record['case_id'], **record['requested_rewrite']} for record in record_chunks],
                     self._hparams, copy=False, return_orig_weights=True,
                     **args_conserve_memory, **etc_args,
-                    do_merging=do_merging
+                    do_save=do_save
                 )
                 exec_time = time.time() - start
                 print(f'# ModelEditor.edit() Execution took : {exec_time}\n\n')
+
+
+                # ✅ 모델 저장 (단, do_save=True일 때만)
+                if do_save:
+                    save_root = Path("./edited_models")
+                    save_root.mkdir(exist_ok=True)
+                    save_idx = len(list(save_root.glob("edit_case_*"))) + 1
+                    save_path = save_root / f"edit_case_{save_idx}"
+
+                    print(f"[ModelEditor] Saving independently edited model to {save_path}")
+                    edited_model.save_pretrained(save_path)
+                    self._tok.save_pretrained(save_path)
+
 
                 # 변경된 모델에 대해서 전체 성능 평가
                 if self._do_eval_new_model:
@@ -477,8 +491,15 @@ class ModelEditor:
 
             # (3) 변경된 결과 확인
             if do_edit_test:
-                self._predict_all(edited_model, self._tok, record_chunks, do_print=do_print, print_prefix='edited')
+                print('\n\n######################################## edit test ########################################\n')
 
+                # do_edit이 수행되었을 경우
+                if do_edit:
+                    model_to_use = edited_model
+                else:
+                    model_to_use = self._model  # 기존 모델 fallback
+
+                self._predict_all(model_to_use, self._tok, record_chunks, do_print=do_print, print_prefix='edited')
 
             case_ids_ext.extend(case_ids)
             record_chunks_list.append(record_chunks)
@@ -493,12 +514,22 @@ class ModelEditor:
             # (4) 현재까지의 전체 데이터 테스트
             if do_extend_test:
                 print('\n\n######################################## extend ########################################\n')
-                if len(self._performances[0]) == 1 and len(self._performances[1]) == 0:
-                    print(f'\n#################### 1st extend step skip ####################\n')
-                    self._performances[1].append(self._performances[0][0])
+                
+                # 편집을 한 이후에 평가를 하고자 한다면
+                if do_edit:
+                    model_to_use = edited_model
+                    if len(self._performances[0]) == 1 and len(self._performances[1]) == 0:
+                        print(f'\n#################### 1st extend step skip ####################\n')
+                        self._performances[1].append(self._performances[0][0])
+                    else:
+                        for _record_chunks in record_chunks_list:
+                            self._predict_all(model_to_use, self._tok, _record_chunks, do_print=do_print, print_prefix='extend')
+                
+                # 편집을 하지 않고, 평가를 하고자 한다면                 
                 else:
+                    model_to_use = self._model
                     for _record_chunks in record_chunks_list:
-                        self._predict_all(edited_model, self._tok, _record_chunks, do_print=do_print, print_prefix='extend')
+                        self._predict_all(model_to_use, self._tok, _record_chunks, do_print=do_print, print_prefix='extend')
             
             # (5) 편집 이전의 weight로 복원 및 테스트
             if do_restore:
