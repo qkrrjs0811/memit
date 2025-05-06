@@ -1,16 +1,13 @@
 base_model: gpt2-xl
 dtype: float16
-merge_method: della
+merge_method: sce
 models:
-- model: ./edited_models/edit_case_1
+- model: edited_models/edited_2_10_1
   parameters:
     weight: 1.0
-- model: ./edited_models/edit_case_2
+- model: edited_models/edited_2_10_2
   parameters:
     weight: 1.0
-
-
 parameters:
-  density: 0.3
-  epsilon: 0.1
+  density: 0.9
   normalize: true

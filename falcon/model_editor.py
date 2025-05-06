@@ -58,6 +58,8 @@ torch.cuda.manual_seed(SEED)
 import warnings
 warnings.filterwarnings('ignore')
 
+import sys
+
 
 class ModelEditor:
     def __init__(self,
@@ -74,7 +76,10 @@ class ModelEditor:
                  num_edits=1,
                  use_cache=False,
                  output_hidden_states=False,
-                 hparams_mod=None
+                 hparams_mod=None,
+                 identical_num=1,
+                 merged_model_path=None,
+                 pruning=False
                 ):
         self._alg_name = alg_name
         self._model_name = model_name
@@ -89,7 +94,9 @@ class ModelEditor:
         self._num_edits = num_edits
         self._use_cache = use_cache
         self._output_hidden_states = output_hidden_states
-
+        self._identical_num = identical_num
+        self._merged_model_path = merged_model_path
+        self._pruning = pruning
         self._params_class, self._apply_algo = ALG_DICT[alg_name]
         self._print_init()
 
@@ -113,6 +120,8 @@ class ModelEditor:
 
         self._do_eval_org_model = False
         self._do_eval_new_model = True
+
+
 
 
     def _print_init(self):
@@ -412,147 +421,171 @@ class ModelEditor:
             print(f'# ModelEditor.restore_weights() weights restored\n')
 
 
-    def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_save=False):
+    def edit_ext_datas(self, datas, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_save=False, log_independent=False, log_merged=False, log_memit=False):
         self._load_data()
         self._ds = datas
-        self.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print, do_save)
+        self.edit(do_org_test, do_edit, do_edit_test, do_extend_test, do_restore, do_restore_test, do_print, do_save, log_independent, log_merged, log_memit)
 
 
-    def edit(self, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_save=False):
+    def edit(self, do_org_test=True, do_edit=True, do_edit_test=True, do_extend_test=True, do_restore=False, do_restore_test=False, do_print=True, do_save=False, log_independent=False, log_merged=False, log_memit=False):
         if self._num_edits > 1:
             assert self._ds_name != 'cf', f'{self._ds_name} does not support multiple edits'
         
         
-        ##### flag 출력 #####
-        print(f'\n# ModelEditor.edit() args')
-        print(f'\tdo_org_test : {do_org_test}, do_edit : {do_edit}, do_edit_test : {do_edit_test}, do_extend_test : {do_extend_test}')
-        print(f'\tdo_restore : {do_restore}, do_restore_test : {do_restore_test}, do_print : {do_print}\n')
-        print(f'\tdo_save : {do_save}\n')
+        # ##### flag 출력 #####
+        # print(f'\n# ModelEditor.edit() args')
+        # print(f'\tdo_org_test : {do_org_test}, do_edit : {do_edit}, do_edit_test : {do_edit_test}, do_extend_test : {do_extend_test}')
+        # print(f'\tdo_restore : {do_restore}, do_restore_test : {do_restore_test}, do_print : {do_print}\n')
+        # print(f'\tdo_save : {do_save}\n')
 
 
         # 누적 실험을 위한 리스트
         case_ids_ext, record_chunks_list = [], []
 
-        for record_chunks in chunks(self._ds, self._num_edits):
+        for batch_idx, record_chunks in enumerate(chunks(self._ds, self._num_edits), start=1):
+            # 로그 파일 열기
+            log_dir = Path('./logs')
+            log_dir.mkdir(exist_ok=True)
+            if log_independent:
+                self.log_file = open(log_dir / f'edited_{self._identical_num}_{self._num_edits}_{batch_idx}.txt', 'w')
+            elif log_merged==True and self._pruning==False:
+                self.log_file = open(log_dir / f'{self._merged_model_path.name}.txt', 'w')
+            elif log_merged==True and self._pruning==True:
+                self.log_file = open(log_dir / f'pruned_{batch_idx}_{self._merged_model_path.name}.txt', 'w')
+            elif log_memit:
+                self.log_file = open(log_dir / f'memit_{self._identical_num}_{self._num_edits}.txt', 'w')
+
             # 기존에 작업한 데이터인지 확인
             if self._check_already(record_chunks):
+                self.log_file.close()  # 로그 파일 닫기
                 continue
 
-            # cpu, gpu, cache 설정
-            args_conserve_memory, etc_args = self._get_args_memory()
+            # 로그를 터미널과 파일에 동시에 출력
+            original_stdout = sys.stdout
+            sys.stdout = self.log_file
 
-            # 확인을 위해, 한 번에 편집되는 전체 case_id list 생성
-            case_ids = [record['case_id'] for record in record_chunks]
-            print(f'######################################## case_ids : {case_ids} ########################################')
+            try:
+                # cpu, gpu, cache 설정
+                args_conserve_memory, etc_args = self._get_args_memory()
 
-            
-            # (1) 기존 결과 확인
-            if do_org_test:
-                self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='org')
-
-                # 기존 모델에 대해서 전체 성능 평가
-                if self._do_eval_org_model:
-                    self._evaluate(self._model, self._tok, record_chunks)
-
-            # (2) 모델 편집
-            '''
-                - ROME : rome_main.apply_rome_to_model()
-                - MEMIT : memit_main.apply_memit_to_model()
-            '''
-            if do_edit:
-                start = time.time()
-                edited_model, self._weights_copy = self._apply_algo(
-                    self._model, self._tok,
-                    [{'case_id': record['case_id'], **record['requested_rewrite']} for record in record_chunks],
-                    self._hparams, copy=False, return_orig_weights=True,
-                    **args_conserve_memory, **etc_args,
-                    do_save=do_save
-                )
-                exec_time = time.time() - start
-                print(f'# ModelEditor.edit() Execution took : {exec_time}\n\n')
-
-
-                # ✅ 모델 저장 (단, do_save=True일 때만)
-                if do_save:
-                    save_root = Path("./edited_models")
-                    save_root.mkdir(exist_ok=True)
-                    save_idx = len(list(save_root.glob("edit_case_*"))) + 1
-                    save_path = save_root / f"edit_case_{save_idx}"
-
-                    print(f"[ModelEditor] Saving independently edited model to {save_path}")
-                    edited_model.save_pretrained(save_path)
-                    self._tok.save_pretrained(save_path)
-
-
-                # 변경된 모델에 대해서 전체 성능 평가
-                if self._do_eval_new_model:
-                    # self._evaluate(edited_model, self._tok, record_chunks, exec_time)
-                    self._evaluate(edited_model, self._tok, record_chunks)
-
-            # (3) 변경된 결과 확인
-            if do_edit_test:
-                print('\n\n######################################## edit test ########################################\n')
-
-                # do_edit이 수행되었을 경우
-                if do_edit:
-                    model_to_use = edited_model
-                else:
-                    model_to_use = self._model  # 기존 모델 fallback
-
-                self._predict_all(model_to_use, self._tok, record_chunks, do_print=do_print, print_prefix='edited')
-
-            case_ids_ext.extend(case_ids)
-            record_chunks_list.append(record_chunks)
-
-            out_dir = '/home/albert0811/dev_env/git/repos/memit/logs/logs_{}'
-            if len(case_ids_ext) <= 10:
-                out_dir += f'/id_{case_ids_ext}'
-            else:
-                out_dir += f'/id_{case_ids_ext[:10]}...{case_ids_ext[-1]}'
-
-
-            # (4) 현재까지의 전체 데이터 테스트
-            if do_extend_test:
-                print('\n\n######################################## extend ########################################\n')
+                    
+                ##### flag 출력 #####
+                print(f'\n# ModelEditor.edit() args')
+                print(f'\tdo_org_test : {do_org_test}, do_edit : {do_edit}, do_edit_test : {do_edit_test}, do_extend_test : {do_extend_test}')
+                print(f'\tdo_restore : {do_restore}, do_restore_test : {do_restore_test}, do_print : {do_print}, do_save : {do_save}')
+                print(f'\tlog_independent : {log_independent}, log_merged : {log_merged}, log_memit : {log_memit}')
+                print(f'\tpruning : {self._pruning}\n')
                 
-                # 편집을 한 이후에 평가를 하고자 한다면
+                # 확인을 위해, 한 번에 편집되는 전체 case_id list 생성
+                case_ids = [record['case_id'] for record in record_chunks]
+                print(f'######################################## case_ids : {case_ids} ########################################')
+
+                # (1) 기존 결과 확인
+                if do_org_test:
+                    self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='org')
+
+                    # 기존 모델에 대해서 전체 성능 평가
+                    if self._do_eval_org_model:
+                        self._evaluate(self._model, self._tok, record_chunks)
+
+                # (2) 모델 편집
                 if do_edit:
-                    model_to_use = edited_model
-                    if len(self._performances[0]) == 1 and len(self._performances[1]) == 0:
-                        print(f'\n#################### 1st extend step skip ####################\n')
-                        self._performances[1].append(self._performances[0][0])
+                    start = time.time()
+                    edited_model, self._weights_copy = self._apply_algo(
+                        self._model, self._tok,
+                        [{'case_id': record['case_id'], **record['requested_rewrite']} for record in record_chunks],
+                        self._hparams, copy=False, return_orig_weights=True,
+                        **args_conserve_memory, **etc_args,
+                        do_save=do_save
+                    )
+                    exec_time = time.time() - start
+                    print(f'# ModelEditor.edit() Execution took : {exec_time}\n\n')
+                    
+                    # 변경된 모델에 대해서 전체 성능 평가
+                    if self._do_eval_new_model:
+                        self._evaluate(edited_model, self._tok, record_chunks)
+
+                    # ✅ 모델 저장 (단, do_save=True일 때만)
+                    if do_save:
+                        save_root = Path("./edited_models")
+                        save_root.mkdir(exist_ok=True)
+                        save_path = save_root / f"edited_{self._identical_num}_{self._num_edits}_{batch_idx}"
+
+                        print(f"[ModelEditor] Saving independently edited model to {save_path}")
+                        edited_model.save_pretrained(save_path)
+                        self._tok.save_pretrained(save_path)
+                else:
+                    # do_edit가 False이고 do_save가 True일 때 원본 모델 저장
+                    if do_save:
+                        save_root = Path("./original_models")
+                        save_root.mkdir(exist_ok=True)
+                        save_path = save_root / f"{self._model_name}"
+
+                        print(f"[ModelEditor] Saving original model to {save_path}")
+                        self._model.save_pretrained(save_path)
+                        self._tok.save_pretrained(save_path)
+
+
+                # (3) 변경된 결과 확인
+                if do_edit_test:
+                    print('\n\n######################################## edit test ########################################\n')
+
+                    # do_edit이 수행되었을 경우
+                    if do_edit:
+                        model_to_use = edited_model
                     else:
+                        model_to_use = self._model  # 기존 모델 fallback
+
+                    self._predict_all(model_to_use, self._tok, record_chunks, do_print=do_print, print_prefix='edited')
+
+                case_ids_ext.extend(case_ids)
+                record_chunks_list.append(record_chunks)
+
+                out_dir = '/home/albert0811/dev_env/git/repos/memit/logs/logs_{}'
+                if len(case_ids_ext) <= 10:
+                    out_dir += f'/id_{case_ids_ext}'
+                else:
+                    out_dir += f'/id_{case_ids_ext[:10]}...{case_ids_ext[-1]}'
+
+                # (4) 현재까지의 전체 데이터 테스트
+                if do_extend_test:
+                    print('\n\n######################################## extend ########################################\n')
+                    
+                    # 편집을 한 이후에 평가를 하고자 한다면
+                    if do_edit:
+                        model_to_use = edited_model
+                        if len(self._performances[0]) == 1 and len(self._performances[1]) == 0:
+                            print(f'\n#################### 1st extend step skip ####################\n')
+                            self._performances[1].append(self._performances[0][0])
+                        else:
+                            for _record_chunks in record_chunks_list:
+                                self._predict_all(model_to_use, self._tok, _record_chunks, do_print=do_print, print_prefix='extend')
+                    
+                    # 편집을 하지 않고, 평가를 하고자 한다면                 
+                    else:
+                        model_to_use = self._model
                         for _record_chunks in record_chunks_list:
                             self._predict_all(model_to_use, self._tok, _record_chunks, do_print=do_print, print_prefix='extend')
                 
-                # 편집을 하지 않고, 평가를 하고자 한다면                 
-                else:
-                    model_to_use = self._model
-                    for _record_chunks in record_chunks_list:
-                        self._predict_all(model_to_use, self._tok, _record_chunks, do_print=do_print, print_prefix='extend')
-            
-            # (5) 편집 이전의 weight로 복원 및 테스트
-            if do_restore:
-                # 편집된 weight를 다시 원래 weight로 복원
-                self.restore_weights()
+                # (5) 편집 이전의 weight로 복원 및 테스트
+                if do_restore:
+                    # 편집된 weight를 다시 원래 weight로 복원
+                    self.restore_weights()
 
-                if do_restore_test:
-                    if not do_extend_test:
-                        print('\n\n######################################## restored ########################################\n')
-                        self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='restored')
-                    # else:
-                    #     print('\n\n######################################## restored_extend ########################################\n')
-                    #     for _record_chunks in record_chunks_list:
-                    #         self._predict_all(self._model, self._tok, _record_chunks, do_print=do_print, print_prefix='restored_extend', out_dir=out_dir)
+                    if do_restore_test:
+                        if not do_extend_test:
+                            print('\n\n######################################## restored ########################################\n')
+                            self._predict_all(self._model, self._tok, record_chunks, do_print=do_print, print_prefix='restored')
 
+                self._cnt += len(record_chunks)
+                print(f'[{self._cnt}] edit finish\n\n')
 
-            self._cnt += len(record_chunks)
-            print(f'[{self._cnt}] edit finish\n\n')
+                self._print_performance()
 
-            self._print_performance()
-
-            # if self._cnt >= 100:
-            #     break
+            finally:
+                # 로그 파일 닫기 및 stdout 복원
+                self.log_file.close()
+                sys.stdout = original_stdout
 
 
     def _print_performance(self):
@@ -583,4 +616,9 @@ class ModelEditor:
             avgs.append(np.mean(group))
 
         return groups, [avgs, np.mean(avgs)]
+
+    def __del__(self):
+       # 객체가 삭제될 때 로그 파일 닫기
+       if hasattr(self, 'log_file') and self.log_file:
+           self.log_file.close()
 
