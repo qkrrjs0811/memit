@@ -259,25 +259,42 @@ def kcc_merge_test(identical_nums, num_edits_list):
         in_file_path = f'{data_dir}/normal/mcf_sampled_{size}.json'
         datas_subject = load_datas(in_file_path)
 
-        print("\n[Test] 기존 Editing 방법에 대해 평가 수행 중...")
-        model_editor_org.edit_ext_datas(
-            datas_subject,
-            do_org_test=False,
-            do_edit=True,
-            do_edit_test=True,
-            do_extend_test=False,
-            do_restore=False,
-            do_restore_test=False,
-            do_print=True,
-            do_save=False,
-            log_independent=False,
-            log_merged=False,
-            log_memit=True
-        )
+        # /logs 디렉토리에 memit_{identical_num}_{num_edits}.txt와 동일한 파일이 존재하는지 확인
+        log_file_path = f"./logs/memit_{identical_num}_{num_edits}.txt"
+        print("#########################")
+        print(f"log_file_path: {log_file_path}")
+        if os.path.exists(log_file_path):
+            print(f"[Warning] 동일한 이름의 로그 파일이 이미 존재합니다: {log_file_path}")
+            print("기존 Editing 방법에 대한 평가를 건너뛰고 병합된 모델 디렉토리 탐색으로 넘어갑니다.")
+        else:
+            print("\n[Test] 기존 Editing 방법에 대해 평가 수행 중...")
+            model_editor_org.edit_ext_datas(
+                datas_subject,
+                do_org_test=False,
+                do_edit=True,
+                do_edit_test=True,
+                do_extend_test=False,
+                do_restore=False,
+                do_restore_test=False,
+                do_print=True,
+                do_save=False,
+                log_independent=False,
+                log_merged=False,
+                log_memit=True
+            )
 
         # 병합된 모델 디렉토리 탐색
         for merged_model_path in merged_dir.iterdir():
             if not merged_model_path.is_dir():
+                continue
+
+            # /logs 디렉토리에 동일한 이름의 txt 파일이 존재하는지 확인
+            log_file_path = f"./logs/{merged_model_path.name}.txt"
+            print("#########################")
+            print(f"log_file_path: {log_file_path}")
+            if os.path.exists(log_file_path):
+                print(f"[Warn] 동일한 이름의 로그 파일이 이미 존재합니다: {log_file_path}")
+                print("다음 경로로 넘어갑니다.")
                 continue
 
             print(f"[Test] 병합된 모델 로드 중... from {merged_model_path}")
@@ -300,7 +317,7 @@ def kcc_merge_test(identical_nums, num_edits_list):
             model_editor_merging._model = model
             model_editor_merging._tok = tok
             model_editor_merging._do_eval_org_model = False
-            model_editor_merging._do_eval_new_model = True
+            model_editor_merging._do_eval_new_model = False
 
             print("[Test] 병합된 모델에 대해 평가 수행 중...")
             model_editor_merging.edit_ext_datas(
@@ -326,11 +343,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # 독립적으로 편집 후 저장
-    # edit_and_save()
-
-    # memit 환경에서 실행
-    # merge_test("normal_merged_2_250_della_5")
     
     # 독립적으로 편집 후 저장
     # kcc_edit_and_save(args.identical_nums, args.num_edits_list)
